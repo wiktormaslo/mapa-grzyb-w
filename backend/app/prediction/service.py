@@ -26,6 +26,7 @@ _response_cache = TTLCache(ttl_s=30 * 60, max_items=300)
 _tile_sem: asyncio.Semaphore | None = None
 
 ALL = "all"
+MAX_BROWSER_POINTS = 200
 
 
 class InputError(ValueError):
@@ -162,9 +163,13 @@ async def predict_bbox(west: float, south: float, east: float, north: float, zoo
         features.append({"type": "Feature", "properties": props,
                          "geometry": {"type": "Polygon", "coordinates": [cell.polygon()]}})
 
-    weather_missing = sorted({wp for wp in wpoints.values() if wp not in weather})
+    # points without weather, or (when zoomed in) served only by the coarse fallback grid:
+    # the browser fetches them from Open-Meteo itself and uploads them (POST /weather)
+    refine = res <= grid.REFINE_MAX_RES
+    weather_missing = sorted({wp for wp in wpoints.values()
+                              if wp not in weather or (refine and wp in coarse)})
     if weather_missing:
-        meta["weather_missing"] = [list(p) for p in weather_missing[:open_meteo.MAX_INGEST_POINTS]]
+        meta["weather_missing"] = [list(p) for p in weather_missing[:MAX_BROWSER_POINTS]]
         meta["weather_request"] = {"url": config.OPEN_METEO_URL, "params": open_meteo.base_params()}
     t3 = time.monotonic()
     timings = {"forest_s": round(t1 - t0, 2), "weather_s": round(t2 - t1, 2),
@@ -175,7 +180,7 @@ async def predict_bbox(west: float, south: float, east: float, north: float, zoo
                 weather_points=len(set(wpoints.values())), errors=sorted(errors),
                 gbif=gbif.status())
     out = {"type": "FeatureCollection", "features": features, "meta": meta}
-    if not errors:
+    if not errors and not weather_missing:
         _response_cache.set(rkey, out)
     return out
 
@@ -222,7 +227,7 @@ async def predict_point(lat: float, lon: float, species: str, date_str: str | No
     errors.extend(werr)
     series = weather.get(wp)
     wf = _features_for(series, target)
-    if series is None:
+    if series is None or wp in coarse:
         base["weather_missing"] = [list(wp)]
         base["weather_request"] = {"url": config.OPEN_METEO_URL, "params": open_meteo.base_params()}
     if series is not None:

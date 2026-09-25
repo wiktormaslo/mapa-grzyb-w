@@ -34,6 +34,7 @@ export interface BboxMeta extends WeatherGap {
   resolution_m: number | null;
   cells: number;
   errors: string[];
+  weather_source?: "open-meteo" | "grid" | "partial";
 }
 
 export interface CellFeature {

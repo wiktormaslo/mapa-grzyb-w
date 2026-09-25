@@ -108,7 +108,10 @@ def cell_in_bbox(c: Cell, bbox) -> bool:
 
 
 def weather_step(res: int) -> tuple[float, float]:
-    """(dlat, dlon) of the weather grid; much coarser than forest data."""
+    """(dlat, dlon) of the weather grid; much coarser than forest data.
+    Open-Meteo models for Poland are ~2-7 km, so ~5 km is the finest useful step."""
+    if res <= 500:
+        return (0.05, 0.075)
     if res <= 1000:
         return (0.1, 0.15)
     if res <= 4000:
@@ -119,3 +122,7 @@ def weather_step(res: int) -> tuple[float, float]:
 def snap_weather(lat: float, lon: float, res: int) -> tuple[float, float]:
     dlat, dlon = weather_step(res)
     return (round(round(lat / dlat) * dlat, 4), round(round(lon / dlon) * dlon, 4))
+
+
+# the fallback grid is ~0.3 deg; asking the browser for finer data only helps below this
+REFINE_MAX_RES = 4000

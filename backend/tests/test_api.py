@@ -54,6 +54,8 @@ def test_bbox_open_meteo_429_uses_fallback_grid(mock_sources):
     assert fc["meta"]["errors"] == []
     assert fc["meta"]["weather_source"] == "grid"
     assert 50 < fc["features"][0]["properties"]["confidence"] < 90  # coarse weather penalty
+    # zoomed in: browser is asked to refine the coarse weather
+    assert fc["meta"]["weather_missing"]
     # cooldown: second request does not hit Open-Meteo again
     calls = mock_sources.calls["open-meteo"]
     c.get("/api/v1/predictions/bbox", params={**BBOX, "species": "suillus_luteus"})
@@ -120,3 +122,26 @@ def test_weather_upload_rejects_garbage(mock_sources):
     far = open_meteo_location(50.0, 19.0)
     assert c.post("/api/v1/weather", json={"points": [[52.0, 21.3]], "data": [far]}).json()["stored"] == 0
     assert c.post("/api/v1/weather", json={"points": [[52.0, 21.3]], "data": []}).status_code == 422
+
+
+def test_browser_refines_coarse_grid_weather(mock_sources):
+    from tests.mock_sources import open_meteo_location
+    mock_sources.fail.add("open-meteo")
+    c = TestClient(app)
+    params = {**BBOX, "species": "boletus_edulis"}
+    coarse = c.get("/api/v1/predictions/bbox", params=params).json()
+    missing = coarse["meta"]["weather_missing"]
+    c.post("/api/v1/weather", json={"points": missing,
+                                    "data": [open_meteo_location(a, b) for a, b in missing]})
+    fine = c.get("/api/v1/predictions/bbox", params=params).json()
+    assert fine["meta"]["weather_source"] == "open-meteo"
+    assert "weather_missing" not in fine["meta"]
+    assert fine["features"][0]["properties"]["confidence"] > coarse["features"][0]["properties"]["confidence"]
+
+
+def test_zoomed_out_does_not_ask_browser_to_refine(mock_sources):
+    mock_sources.fail.add("open-meteo")
+    fc = TestClient(app).get("/api/v1/predictions/bbox", params={
+        "west": 20.5, "south": 51.5, "east": 22.5, "north": 52.6, "zoom": 7}).json()
+    assert fc["meta"]["resolution_m"] > 4000
+    assert "weather_missing" not in fc["meta"]

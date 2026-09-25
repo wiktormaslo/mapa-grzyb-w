@@ -129,8 +129,10 @@ async function load() {
     let data = await fetchBbox(params, controller.signal);
     setPredictions(map, data);
     if (data.meta.weather_missing?.length) {
-      // server was rate limited by Open-Meteo: fetch weather from this browser and retry once
-      setStatus("Serwer nie dostał pogody – pobieram ją przez przeglądarkę…", "busy");
+      // server has no (or only ~30 km) weather here: fetch precise weather from this browser, retry once
+      setStatus(data.features.length
+        ? "Mapa z pogodą przybliżoną (~30 km) – doprecyzowuję pogodę…"
+        : "Pobieranie pogody przez przeglądarkę…", "busy");
       try {
         if (await fillWeatherGap(data.meta, controller.signal)) {
           data = await fetchBbox(params, controller.signal);
@@ -144,6 +146,11 @@ async function load() {
     const parts = [];
     if (m.resolution_m) parts.push(`siatka ${m.resolution_m >= 1000 ? m.resolution_m / 1000 + " km" : m.resolution_m + " m"}`);
     parts.push(`${m.cells} komórek leśnych`);
+    if (m.cells && m.weather_source) {
+      parts.push(m.weather_source === "open-meteo" && !m.weather_missing?.length
+        ? "pogoda dokładna (Open-Meteo)"
+        : "pogoda przybliżona (~30 km)");
+    }
     if (m.errors.length) {
       setStatus(`${parts.join(" · ")} · problemy ze źródłami: ${m.errors.join("; ")}`, "err");
     } else {
