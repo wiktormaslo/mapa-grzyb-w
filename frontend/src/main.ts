@@ -56,10 +56,13 @@ map.on("error", (e) => {
     map.setStyle(rasterFallbackStyle());
   }
 });
-map.on("styleimagemissing", (e) => {
-  if (e.id === "hatch" && !map.hasImage("hatch")) map.addImage("hatch", hatchImage(), { pixelRatio: 2 });
-});
 map.on("style.load", () => {
+  // background-pattern does not fire "styleimagemissing": register the hatch explicitly and
+  // re-apply the pattern so the layer picks it up
+  if (map.getLayer("nonforest-hatch")) {
+    if (!map.hasImage("hatch")) map.addImage("hatch", hatchImage(), { pixelRatio: 2 });
+    map.setPaintProperty("nonforest-hatch", "background-pattern", "hatch");
+  }
   addPredictionLayers(map, state.mode);
   if (state.last) setPredictions(map, state.last);
   if (state.ready) scheduleLoad(0);

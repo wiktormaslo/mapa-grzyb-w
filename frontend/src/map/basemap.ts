@@ -202,7 +202,7 @@ export function rasterFallbackStyle(): StyleSpecification {
   };
 }
 
-/** Faint diagonal hatch (registered on demand via the "styleimagemissing" event). */
+/** Faint diagonal hatch for non-forest land (added in main.ts on style.load). */
 export function hatchImage(): ImageData {
   const size = 16; // drawn at 2x for crisp lines
   const c = document.createElement("canvas");
@@ -210,7 +210,7 @@ export function hatchImage(): ImageData {
   const g = c.getContext("2d")!;
   g.fillStyle = C.land;
   g.fillRect(0, 0, size, size);
-  g.strokeStyle = "rgba(205, 230, 215, 0.13)";
+  g.strokeStyle = "rgba(205, 230, 215, 0.09)";
   g.lineWidth = 1.5;
   g.beginPath();
   for (const o of [-size, 0, size]) { g.moveTo(o, size); g.lineTo(o + size, 0); }
