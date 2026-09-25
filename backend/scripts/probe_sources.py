@@ -159,7 +159,8 @@ async def probe_frontend_services():
         "OpenFreeMap TileJSON": "https://tiles.openfreemap.org/planet",
         "OpenFreeMap glyphs": "https://tiles.openfreemap.org/fonts/Noto%20Sans%20Regular/0-255.pbf",
         "OpenFreeMap glyphs bold": "https://tiles.openfreemap.org/fonts/Noto%20Sans%20Bold/0-255.pbf",
-        "Photon search": "https://photon.komoot.io/api/?q=Puszcza%20Kampinoska&limit=2&lang=default&bbox=14.0,49.0,24.2,54.9",
+        "Photon search": "https://photon.komoot.io/api/?q=Puszcza%20Kampinoska&limit=2&bbox=14.0,49.0,24.2,54.9",
+        "Nominatim search": "https://nominatim.openstreetmap.org/search?q=Celestyn%C3%B3w&format=jsonv2&countrycodes=pl&limit=2",
     }
     async with httpx.AsyncClient(timeout=30, follow_redirects=True) as c:
         for name, url in urls.items():
@@ -170,8 +171,13 @@ async def probe_frontend_services():
                     j = r.json()
                     extra = f" layers={[v.get('id') for v in j.get('vector_layers', [])]}"
                 elif "Photon" in name:
-                    extra = " " + json.dumps([f["properties"].get("name") for f in r.json().get("features", [])],
-                                             ensure_ascii=False)
+                    try:
+                        extra = " " + json.dumps([f["properties"].get("name") for f in r.json().get("features", [])],
+                                                 ensure_ascii=False)
+                    except ValueError:
+                        extra = " non-JSON: " + r.text[:200]
+                elif "Nominatim" in name:
+                    extra = " " + r.text[:150]
                 print(f"{name}: {r.status_code} ({len(r.content)} B){extra}")
             except Exception as e:  # noqa: BLE001
                 print(f"{name}: ERROR {e!r}")

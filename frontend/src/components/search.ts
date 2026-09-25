@@ -1,6 +1,7 @@
 /**
  * Place search. Photon (komoot, OSM data) supports search-as-you-type and CORS;
  * results are limited to Poland. "52.1, 21.3" style coordinates work too.
+ * If Photon fails, Nominatim is used - only on Enter, as its policy forbids autocomplete.
  */
 export interface Place {
   name: string;
@@ -11,6 +12,7 @@ export interface Place {
 }
 
 const PHOTON = "https://photon.komoot.io/api/";
+const NOMINATIM = "https://nominatim.openstreetmap.org/search";
 const PL_BBOX = "14.0,49.0,24.2,54.9";
 const COORDS = /^\s*(-?\d{1,2}(?:[.,]\d+)?)\s*[,;\s]\s*(-?\d{1,3}(?:[.,]\d+)?)\s*$/;
 
@@ -21,7 +23,7 @@ const TYPE_PL: Record<string, string> = {
   county: "powiat", state: "województwo", locality: "miejscowość", street: "ulica",
 };
 
-async function query(q: string, signal: AbortSignal): Promise<Place[]> {
+async function query(q: string, signal: AbortSignal, explicit = false): Promise<Place[]> {
   const m = q.match(COORDS);
   if (m) {
     const lat = parseFloat(m[1].replace(",", ".")), lon = parseFloat(m[2].replace(",", "."));
@@ -29,7 +31,35 @@ async function query(q: string, signal: AbortSignal): Promise<Place[]> {
       return [{ name: `${lat.toFixed(5)}, ${lon.toFixed(5)}`, detail: "współrzędne", lat, lon }];
     }
   }
-  const url = `${PHOTON}?${new URLSearchParams({ q, limit: "7", lang: "default", bbox: PL_BBOX })}`;
+  try {
+    return await photon(q, signal);
+  } catch (e) {
+    if ((e as Error).name === "AbortError" || !explicit) throw e;
+    return nominatim(q, signal); // fallback when Photon is down (explicit search only)
+  }
+}
+
+async function nominatim(q: string, signal: AbortSignal): Promise<Place[]> {
+  const url = `${NOMINATIM}?${new URLSearchParams({
+    q, format: "jsonv2", countrycodes: "pl", limit: "7", "accept-language": "pl",
+  })}`;
+  const r = await fetch(url, { signal });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const rows = await r.json();
+  return rows.map((x: any) => {
+    const bb = (x.boundingbox ?? []).map(Number); // [s, n, w, e]
+    const parts = String(x.display_name ?? "").split(", ");
+    return {
+      name: x.name || parts[0],
+      detail: [TYPE_PL[x.type] ?? "", parts.slice(1, 4).join(", ")].filter(Boolean).join(" · "),
+      lat: Number(x.lat), lon: Number(x.lon),
+      bbox: bb.length === 4 ? [bb[2], bb[0], bb[3], bb[1]] : undefined,
+    } as Place;
+  });
+}
+
+async function photon(q: string, signal: AbortSignal): Promise<Place[]> {
+  const url = `${PHOTON}?${new URLSearchParams({ q, limit: "7", bbox: PL_BBOX })}`;
   const r = await fetch(url, { signal });
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   const body = await r.json();
@@ -93,15 +123,32 @@ export function initSearch(root: HTMLElement, onPick: (p: Place) => void) {
       } catch (e) {
         if ((e as Error).name !== "AbortError") {
           items = [];
-          list.innerHTML = `<li class="empty">Wyszukiwarka niedostępna</li>`;
+          list.innerHTML = `<li class="empty">Podpowiedzi niedostępne – naciśnij Enter, aby wyszukać</li>`;
           list.hidden = false;
         }
       }
     }, 350);
   });
-  input.addEventListener("keydown", (e) => {
+  input.addEventListener("keydown", async (e) => {
     if (list.hidden || !items.length) {
       if (e.key === "Escape") input.blur();
+      if (e.key === "Enter" && input.value.trim().length >= 2) {
+        // explicit search (also the Nominatim fallback path)
+        e.preventDefault();
+        window.clearTimeout(timer);
+        ctrl?.abort();
+        ctrl = new AbortController();
+        try {
+          items = await query(input.value.trim(), ctrl.signal, true);
+          if (items.length === 1) pick(items[0]);
+          else { active = items.length ? 0 : -1; render(); }
+        } catch (err) {
+          if ((err as Error).name !== "AbortError") {
+            list.innerHTML = `<li class="empty">Wyszukiwarka niedostępna</li>`;
+            list.hidden = false;
+          }
+        }
+      }
       return;
     }
     if (e.key === "ArrowDown") { active = (active + 1) % items.length; render(); e.preventDefault(); }

@@ -41,7 +41,7 @@ async def fetch_soil(lat: float, lon: float) -> SoilInfo | None:
     params = [("lon", f"{lon:.4f}"), ("lat", f"{lat:.4f}"), ("value", "mean"),
               ("depth", "0-5cm"), ("depth", "5-15cm")] + [("property", p) for p in PROPS]
     try:
-        r = await get_client().get(config.SOILGRIDS_URL, params=params, timeout=8.0)
+        r = await get_client().get(config.SOILGRIDS_URL, params=params, timeout=4.0)
         if r.status_code != 200:
             return None
         info = parse(r.json())

@@ -345,7 +345,8 @@ def _confidence(ctx: Context, comps, wcomp, soil_source, m: ModelSettings) -> tu
     conf -= m.confidence_resolution_penalty.get(ctx.resolution_m, 10)
     if ctx.weather_coarse and ctx.weather:
         conf -= m.confidence_coarse_weather_penalty
-    return int(round(clamp(conf, 5, 100))), missing
+    # a heuristic model is never certain: data completeness caps at 95
+    return int(round(clamp(conf, 5, 95))), missing
 
 
 def _reasons(comps, wcomp, season, pen, ctx: Context, m: ModelSettings) -> tuple[list[str], list[str]]:
