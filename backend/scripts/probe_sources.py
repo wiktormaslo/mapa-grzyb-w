@@ -6,7 +6,9 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import sys
+import time
 
 import httpx
 
@@ -48,6 +50,15 @@ async def probe_bdl():
              or body)
     except Exception as e:  # noqa: BLE001
         show("BDL sample ERROR", repr(e))
+    for n in (16, 32):
+        big = [(LAT - 0.04 + j * 0.08 / n, LON - 0.06 + i * 0.12 / n) for j in range(n) for i in range(n)]
+        t0 = time.monotonic()
+        try:
+            res = await bdl.query_points(big, simplify_deg=0.0002)
+            print(f"BDL timing {n * n} points: {time.monotonic() - t0:.1f}s, "
+                  f"in stand: {sum(1 for x in res if x)}")
+        except Exception as e:  # noqa: BLE001
+            print(f"BDL timing {n * n} points ERROR after {time.monotonic() - t0:.1f}s: {e!r}")
     pts = [(LAT + dy * 0.004, LON + dx * 0.006) for dy in range(-3, 4) for dx in range(-3, 4)]
     try:
         infos = await bdl.query_points(pts)
@@ -95,29 +106,35 @@ async def probe_soil():
 
 
 async def probe_app(url: str):
-    async with httpx.AsyncClient(timeout=120) as c:
+    async with httpx.AsyncClient(timeout=180) as c:
         for path in ("/api/v1/health",
+                     f"/api/v1/predictions/bbox?west={LON - 0.02}&south={LAT - 0.01}&east={LON + 0.02}"
+                     f"&north={LAT + 0.01}&zoom=14&species=all",
                      f"/api/v1/predictions/bbox?west={LON - 0.08}&south={LAT - 0.04}&east={LON + 0.08}"
                      f"&north={LAT + 0.04}&zoom=12&species=all",
                      f"/api/v1/prediction?lat={LAT}&lon={LON}&species=boletus_edulis"):
+            t0 = time.monotonic()
             try:
                 r = await c.get(url.rstrip("/") + path)
+                print(f"APP {path[:60]} took {time.monotonic() - t0:.1f}s")
                 body = r.json()
                 if "features" in body:
                     body = {"meta": body["meta"], "n": len(body["features"]),
                             "first": [f["properties"] for f in body["features"][:3]]}
                 show(f"APP {path[:40]}", {"status": r.status_code, "body": body})
             except Exception as e:  # noqa: BLE001
-                show(f"APP {path[:40]} ERROR", repr(e))
+                show(f"APP {path[:40]} ERROR after {time.monotonic() - t0:.0f}s", repr(e))
 
 
 async def main():
+    logging.basicConfig(level=logging.INFO, format="%(name)s: %(message)s")
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    if len(sys.argv) > 1 and sys.argv[1]:
+        await probe_app(sys.argv[1])  # first, while the server is fresh
     await probe_bdl()
     await probe_meteo()
     await probe_gbif()
     await probe_soil()
-    if len(sys.argv) > 1 and sys.argv[1]:
-        await probe_app(sys.argv[1])
 
 
 if __name__ == "__main__":

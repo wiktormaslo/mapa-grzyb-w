@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from typing import Any
 
 import httpx
@@ -28,6 +29,9 @@ SITE_FIELDS = ("site_type_cd", "site_type", "siedlisko", "tsl", "typ_siedl")
 SHARE_FIELDS = ("species_share", "udzial", "part_cd")
 ADDRESS_FIELDS = ("adress_forest", "adres_forest", "address_forest", "adr_for", "adres_les")
 STRUCTURE_FIELDS = ("stand_stru", "stand_struct")
+AREA_TYPE_FIELDS = ("area_type_cd", "area_type")
+# only real tree stands; clear-cuts (ZRĄB), power lines (L ENERG) etc. are not mushroom habitat
+STAND_AREA_TYPES = ("D-STAN",)
 
 MAX_SPLIT_DEPTH = 4
 
@@ -38,6 +42,14 @@ def _pick(attrs: dict[str, Any], names: tuple[str, ...]) -> Any:
         if v is not None and str(v).strip() not in ("", "-", "null", "None"):
             return v
     return None
+
+
+def is_stand(raw: dict[str, Any]) -> bool:
+    attrs = {str(k).lower(): v for k, v in raw.items()}
+    area_type = _pick(attrs, AREA_TYPE_FIELDS)
+    if area_type is None:
+        return True  # unknown -> keep
+    return str(area_type).strip().upper() in STAND_AREA_TYPES
 
 
 def parse_attributes(raw: dict[str, Any]) -> ForestInfo:
@@ -93,9 +105,10 @@ def match_points(points: list[tuple[float, float]], features: list[dict[str, Any
     """points are (lat, lon). Even-odd rule over rings handles holes and multipart polygons."""
     polys: list[Polygon] = []
     owner: list[int] = []
-    infos: list[ForestInfo] = []
+    infos: list[ForestInfo | None] = []
     for fi, feat in enumerate(features):
-        infos.append(parse_attributes(feat.get("attributes") or {}))
+        attrs = feat.get("attributes") or {}
+        infos.append(parse_attributes(attrs) if is_stand(attrs) else None)
         for poly in _rings_to_polys(feat.get("geometry")):
             polys.append(poly)
             owner.append(fi)
@@ -111,7 +124,7 @@ def match_points(points: list[tuple[float, float]], features: list[dict[str, Any
                 hits[owner[idx]] = hits.get(owner[idx], 0) + 1
         for fi, n in hits.items():
             if n % 2 == 1:
-                result[i] = infos[fi]
+                result[i] = infos[fi]  # None for non-stand areas (clear-cut etc.)
                 break
     return result
 
@@ -131,6 +144,7 @@ async def _query(points: list[tuple[float, float]], simplify_deg: float) -> tupl
         "geometryPrecision": "6",
         "maxAllowableOffset": f"{simplify_deg:.6f}",
     }
+    t0 = time.monotonic()
     try:
         r = await get_client().post(f"{config.BDL_LAYER_URL}/query", data=data)
     except httpx.HTTPError as e:
@@ -143,6 +157,9 @@ async def _query(points: list[tuple[float, float]], simplify_deg: float) -> tupl
         raise SourceError("bdl", "non-JSON response") from e
     if "error" in body:
         raise SourceError("bdl", f"service error: {body['error']}")
+    log.info("BDL query: %d points -> %d features, exceeded=%s, %.1fs, %d kB",
+             len(points), len(body.get("features") or []), bool(body.get("exceededTransferLimit")),
+             time.monotonic() - t0, len(r.content) // 1024)
     return body.get("features") or [], bool(body.get("exceededTransferLimit"))
 
 

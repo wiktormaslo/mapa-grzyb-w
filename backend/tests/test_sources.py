@@ -72,3 +72,23 @@ def test_gbif_filtering_and_counts():
     gbif.set_points("x", pts)
     assert gbif.count_near("x", 52.01, 21.01) == 1
     assert gbif.count_near("x", 54.0, 18.0) == 0
+
+
+def test_bdl_real_attribute_format():
+    # attribute layout observed in the live BDL service (WMS_BDL/MapServer/5)
+    real = {"adress_forest": "17-01-1-03-291   -a   -00", "area_type_cd": "D-STAN    ",
+            "site_type_cd": "BŚW    ", "species_cd_d": "SO       ", "part_cd": "8  ",
+            "species_age": 11, "stand_struct_cd": "DRZEW  "}
+    info = bdl.parse_attributes(real)
+    assert info.species == [("Pinus", 0.8)]
+    assert info.site_type == "BŚW" and info.stand_age == 11
+    assert bdl.is_stand(real)
+    assert bdl.parse_attributes({**real, "part_cd": "10 "}).species == [("Pinus", 1.0)]
+    assert not bdl.is_stand({**real, "area_type_cd": "ZRĄB      "})
+    assert not bdl.is_stand({**real, "area_type_cd": "L ENERG   "})
+
+
+def test_bdl_clear_cut_is_not_forest():
+    clear_cut = {"attributes": {"area_type_cd": "ZRĄB", "site_type_cd": "BŚW"},
+                 "geometry": {"rings": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]]}}
+    assert bdl.match_points([(0.5, 0.5)], [clear_cut]) == [None]

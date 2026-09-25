@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from datetime import date, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -97,6 +98,7 @@ async def predict_bbox(west: float, south: float, east: float, north: float, zoo
         return cached
 
     gbif.ensure_loading(SPECIES)
+    t0 = time.monotonic()
     tiles = grid.tiles_for(bbox, res)
     results = await asyncio.gather(*(_forest_tile(ti, tj, res) for ti, tj in tiles),
                                    return_exceptions=True)
@@ -111,9 +113,11 @@ async def predict_bbox(west: float, south: float, east: float, north: float, zoo
         else:
             cells.extend(cf for cf in r if grid.cell_in_bbox(cf[0], bbox))
 
+    t1 = time.monotonic()
     wpoints = {c: grid.snap_weather(*c.center, res) for c, _ in cells}
     weather, werr = await open_meteo.fetch_weather(list(set(wpoints.values())))
     errors.update(werr)
+    t2 = time.monotonic()
     wfeat_cache: dict[tuple[float, float], dict | None] = {}
 
     features = []
@@ -142,7 +146,11 @@ async def predict_bbox(west: float, south: float, east: float, north: float, zoo
         features.append({"type": "Feature", "properties": props,
                          "geometry": {"type": "Polygon", "coordinates": [cell.polygon()]}})
 
-    meta.update(resolution_m=res, cells=len(features), tiles=len(tiles),
+    t3 = time.monotonic()
+    timings = {"forest_s": round(t1 - t0, 2), "weather_s": round(t2 - t1, 2),
+               "score_s": round(t3 - t2, 2)}
+    log.info("bbox res=%d tiles=%d cells=%d %s", res, len(tiles), len(features), timings)
+    meta.update(resolution_m=res, cells=len(features), tiles=len(tiles), timings=timings,
                 weather_points=len(set(wpoints.values())), errors=sorted(errors),
                 gbif=gbif.status())
     out = {"type": "FeatureCollection", "features": features, "meta": meta}

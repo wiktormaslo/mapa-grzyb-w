@@ -9,7 +9,7 @@ M_PER_DEG_LON = 111_320.0 * math.cos(math.radians(52.0))  # fixed reference lati
 
 LADDER = [250, 500, 1000, 2000, 4000, 8000, 16000, 32000]
 MAX_CELLS = 2500
-TILE = 32  # cells per tile side
+TILE = 16  # cells per tile side (one BDL request per tile)
 
 # Poland bounding box (with a small margin)
 PL_BBOX = (14.07, 48.99, 24.16, 54.85)
