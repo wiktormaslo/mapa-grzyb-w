@@ -53,7 +53,7 @@ def test_bbox_open_meteo_429_uses_fallback_grid(mock_sources):
     fc = c.get("/api/v1/predictions/bbox", params={**BBOX, "species": "boletus_edulis"}).json()
     assert fc["meta"]["errors"] == []
     assert fc["meta"]["weather_source"] == "grid"
-    assert fc["features"][0]["properties"]["confidence"] > 60
+    assert 50 < fc["features"][0]["properties"]["confidence"] < 90  # coarse weather penalty
     # cooldown: second request does not hit Open-Meteo again
     calls = mock_sources.calls["open-meteo"]
     c.get("/api/v1/predictions/bbox", params={**BBOX, "species": "suillus_luteus"})

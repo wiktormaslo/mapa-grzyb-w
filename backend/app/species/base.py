@@ -100,6 +100,7 @@ class ModelSettings:
         "soil": 8, "gbif": 5, "elevation": 2,
     })
     confidence_lead_day_penalty: float = 4.0
+    confidence_coarse_weather_penalty: float = 12.0
     confidence_resolution_penalty: dict[int, float] = field(default_factory=lambda: {
         250: 0, 500: 0, 1000: 2, 2000: 5, 4000: 8, 8000: 12, 16000: 15, 32000: 18,
     })

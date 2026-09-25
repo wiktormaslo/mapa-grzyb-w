@@ -27,6 +27,8 @@ jobs:
       - run: pip install -r backend/requirements.txt
       - name: Build grid
         working-directory: backend
+        env:
+          HTTP_TIMEOUT_S: "90"
         run: python -u -m scripts.build_weather_grid "$RUNNER_TEMP/weather_grid.json.gz"
       - name: Publish to weather-data branch (single commit, history not kept)
         run: |

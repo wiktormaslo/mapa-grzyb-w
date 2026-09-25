@@ -70,19 +70,20 @@ async def _forest_tile(ti: int, tj: int, res: int) -> list[tuple[grid.Cell, Fore
     return await _forest_cache.get_or_fetch(("forest", res, ti, tj), fetch)
 
 
-async def get_weather(points: list[tuple[float, float]]) -> tuple[dict, list[str], str]:
+async def get_weather(points: list[tuple[float, float]]) -> tuple[dict, list[str], str, set]:
     """Live Open-Meteo first; points it could not serve come from the fallback grid.
 
-    Returns (series by point, errors, source label)."""
+    Returns (series by point, errors, source label, points served by the coarse grid)."""
     weather, errors = await open_meteo.fetch_weather(points)
     missing = [p for p in points if p not in weather]
     if not missing:
-        return weather, [], "open-meteo"
+        return weather, [], "open-meteo", set()
     fallback = await weather_grid.nearest(missing)
     weather.update(fallback)
+    coarse = set(fallback)
     if len(fallback) == len(missing):
-        return weather, [], "open-meteo" if len(fallback) < len(points) / 2 else "grid"
-    return weather, errors + ["weather grid: unavailable"], "partial"
+        return weather, [], "open-meteo" if len(fallback) < len(points) / 2 else "grid", coarse
+    return weather, errors + ["weather grid: unavailable"], "partial", coarse
 
 
 def _features_for(series: WeatherSeries | None, d: date) -> dict[str, Any] | None:
@@ -130,7 +131,7 @@ async def predict_bbox(west: float, south: float, east: float, north: float, zoo
 
     t1 = time.monotonic()
     wpoints = {c: grid.snap_weather(*c.center, res) for c, _ in cells}
-    weather, werr, wsource = await get_weather(list(set(wpoints.values())))
+    weather, werr, wsource, coarse = await get_weather(list(set(wpoints.values())))
     errors.update(werr)
     t2 = time.monotonic()
     wfeat_cache: dict[tuple[float, float], dict | None] = {}
@@ -149,7 +150,7 @@ async def predict_bbox(west: float, south: float, east: float, north: float, zoo
             ctx = Context(forest=forest, weather=dict(wf) if wf else None,
                           gbif_count=gbif.count_near(sid, lat, lon),
                           elevation=series.elevation if series else None,
-                          lead_days=lead, resolution_m=res)
+                          lead_days=lead, resolution_m=res, weather_coarse=wp in coarse)
             p = predict(SPECIES[sid], ctx, target)
             scores[sid] = p["score"]
             if best is None or p["score"] > best["score"]:
@@ -216,7 +217,7 @@ async def predict_point(lat: float, lon: float, species: str, date_str: str | No
         return base
 
     wp = grid.snap_weather(lat, lon, 1000)
-    (weather, werr, wsource), soil = await asyncio.gather(get_weather([wp]),
+    (weather, werr, wsource, coarse), soil = await asyncio.gather(get_weather([wp]),
                                                           soilgrids.fetch_soil(lat, lon))
     errors.extend(werr)
     series = weather.get(wp)
@@ -235,7 +236,7 @@ async def predict_point(lat: float, lon: float, species: str, date_str: str | No
         cnt = gbif.count_near(sid, lat, lon)
         ctx = Context(forest=forest, weather=dict(wf) if wf else None, soil=soil,
                       gbif_count=cnt, elevation=series.elevation if series else None,
-                      lead_days=lead, resolution_m=250)
+                      lead_days=lead, resolution_m=250, weather_coarse=wp in coarse)
         p = predict(SPECIES[sid], ctx, target)
         p["name_pl"] = SPECIES[sid].name_pl
         p["latin"] = SPECIES[sid].latin

@@ -43,6 +43,7 @@ class Context:
     elevation: float | None = None
     lead_days: int = 0
     resolution_m: int = 250
+    weather_coarse: bool = False  # weather from the ~30 km fallback grid
 
 
 def _rnd(x: float | None, n: int = 3) -> float | None:
@@ -315,6 +316,8 @@ def _confidence(ctx: Context, comps, wcomp, soil_source, m: ModelSettings) -> tu
     conf = 100.0 * got / total
     conf -= m.confidence_lead_day_penalty * max(0, ctx.lead_days)
     conf -= m.confidence_resolution_penalty.get(ctx.resolution_m, 10)
+    if ctx.weather_coarse and ctx.weather:
+        conf -= m.confidence_coarse_weather_penalty
     return int(round(clamp(conf, 5, 100))), missing
 
 

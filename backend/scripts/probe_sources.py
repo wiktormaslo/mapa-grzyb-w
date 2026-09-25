@@ -106,24 +106,38 @@ async def probe_soil():
 
 
 async def probe_app(url: str):
+    base = url.rstrip("/")
     async with httpx.AsyncClient(timeout=180) as c:
-        for path in ("/api/v1/health",
-                     f"/api/v1/predictions/bbox?west={LON - 0.02}&south={LAT - 0.01}&east={LON + 0.02}"
-                     f"&north={LAT + 0.01}&zoom=14&species=all",
-                     f"/api/v1/predictions/bbox?west={LON - 0.08}&south={LAT - 0.04}&east={LON + 0.08}"
-                     f"&north={LAT + 0.04}&zoom=12&species=all",
-                     f"/api/v1/prediction?lat={LAT}&lon={LON}&species=boletus_edulis"):
+        async def get(path):
             t0 = time.monotonic()
             try:
-                r = await c.get(url.rstrip("/") + path)
+                r = await c.get(base + path)
                 print(f"APP {path[:60]} took {time.monotonic() - t0:.1f}s")
-                body = r.json()
-                if "features" in body:
-                    body = {"meta": body["meta"], "n": len(body["features"]),
-                            "first": [f["properties"] for f in body["features"][:3]]}
-                show(f"APP {path[:40]}", {"status": r.status_code, "body": body})
+                return r.status_code, r.json()
             except Exception as e:  # noqa: BLE001
                 show(f"APP {path[:40]} ERROR after {time.monotonic() - t0:.0f}s", repr(e))
+                return None, None
+
+        status, body = await get("/api/v1/health")
+        show("APP health", {"status": status, "body": body})
+        cell = None
+        for west, south, east, north, zoom in ((LON - 0.02, LAT - 0.01, LON + 0.02, LAT + 0.01, 14),
+                                               (LON - 0.08, LAT - 0.04, LON + 0.08, LAT + 0.04, 12)):
+            status, body = await get(f"/api/v1/predictions/bbox?west={west}&south={south}&east={east}"
+                                     f"&north={north}&zoom={zoom}&species=all")
+            if body and "features" in body:
+                if body["features"] and cell is None:
+                    ring = body["features"][0]["geometry"]["coordinates"][0]
+                    cell = (sum(p[1] for p in ring[:4]) / 4, sum(p[0] for p in ring[:4]) / 4)
+                body = {"meta": body["meta"], "n": len(body["features"]),
+                        "first": [f["properties"] for f in body["features"][:3]]}
+            show("APP bbox", {"status": status, "body": body})
+        if cell:
+            status, body = await get(f"/api/v1/prediction?lat={cell[0]:.5f}&lon={cell[1]:.5f}&species=all")
+            if body and body.get("results"):
+                for r in body["results"]:
+                    r.pop("components", None)
+            show("APP point (forest cell)", {"status": status, "body": body})
 
 
 async def main():
