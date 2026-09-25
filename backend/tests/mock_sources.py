@@ -72,6 +72,26 @@ def make_transport(state: MockState) -> httpx.MockTransport:
                 {"decimalLatitude": 52.05, "decimalLongitude": 21.35, "year": 2015,
                  "eventDate": "2015-09-20", "coordinateUncertaintyInMeters": 30},
             ]})
+        if "githubusercontent" in host:
+            if "grid" in state.fail:
+                return httpx.Response(404)
+            import gzip
+            from datetime import datetime, timezone
+            loc = open_meteo_location(52.0, 21.3, rain_every=4, rain_mm=6.0)
+            names = {"precipitation_sum": "precip", "temperature_2m_mean": "tmean",
+                     "temperature_2m_max": "tmax", "temperature_2m_min": "tmin",
+                     "relative_humidity_2m_mean": "rh", "et0_fao_evapotranspiration": "et0",
+                     "vapour_pressure_deficit_max": "vpd"}
+            d = {v: loc["daily"][k] for k, v in names.items()}
+            n = len(loc["daily"]["time"])
+            d["soil_moisture"] = [0.2] * n
+            d["soil_temp"] = [12.0] * n
+            doc = {"generated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                   "step": [0.3, 0.45], "dates": loc["daily"]["time"],
+                   "points": [{"lat": 51.9, "lon": 21.15, "elev": 100, "d": d},
+                              {"lat": 52.2, "lon": 21.6, "elev": 100, "d": d}]}
+            state.calls["grid"] = state.calls.get("grid", 0) + 1
+            return httpx.Response(200, content=gzip.compress(json.dumps(doc).encode()))
         if "isric" in host:
             state.calls["soilgrids"] += 1
             if "soilgrids" in state.fail:

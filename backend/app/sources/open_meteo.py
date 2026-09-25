@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections import defaultdict
 from typing import Any
 
@@ -40,6 +41,8 @@ CHUNK = 50
 
 _cache = TTLCache(ttl_s=3 * 3600, max_items=5000)
 _variant_idx = 0
+COOLDOWN_S = 600
+_blocked_until = 0.0  # after a 429 skip live requests for a while (fallback grid is used)
 
 
 def _key(lat: float, lon: float) -> tuple[float, float]:
@@ -75,7 +78,7 @@ def parse_location(obj: dict[str, Any]) -> WeatherSeries:
 
 
 async def _request(points: list[tuple[float, float]]) -> list[WeatherSeries]:
-    global _variant_idx
+    global _variant_idx, _blocked_until
     client = get_client()
     while True:
         daily, hourly = VARIANTS[_variant_idx]
@@ -98,6 +101,7 @@ async def _request(points: list[tuple[float, float]]) -> list[WeatherSeries]:
             _variant_idx += 1
             continue
         if r.status_code == 429:
+            _blocked_until = time.monotonic() + COOLDOWN_S
             raise SourceError("open-meteo", "rate limited (429)")
         if r.status_code != 200:
             raise SourceError("open-meteo", f"HTTP {r.status_code}: {r.text[:200]}")
@@ -119,6 +123,8 @@ async def fetch_weather(points: list[tuple[float, float]]) -> tuple[dict[tuple[f
         else:
             missing.append(p)
     errors: list[str] = []
+    if missing and time.monotonic() < _blocked_until:
+        return result, ["open-meteo: rate limited (429), cooling down"]
     sem = asyncio.Semaphore(2)
 
     async def run(chunk):

@@ -28,6 +28,11 @@ Score    = Habitat × (0.30 + 0.70 × Weather) × Sezon × kary(susza, upał, mr
 | GBIF | obserwacje z Polski: mały prior (nie może dominować wyniku) |
 | SoilGrids | pH i skład gleby, tylko w szczegółach klikniętego punktu (API jest wolne) |
 
+Na darmowym Renderze Open-Meteo często zwraca 429, bo Render współdzieli adresy IP.
+Dlatego workflow `weather-grid.yml` co 6 godzin buduje z GitHub Actions krajową siatkę
+pogody (~30 km) i zapisuje ją na gałęzi `weather-data`. Backend używa jej, gdy Open-Meteo
+odmówi. Workflow `probe.yml`, uruchamiany ręcznie, sprawdza źródła i wdrożoną aplikację.
+
 Ograniczenie: BDL udostępnia szczegółowe dane drzewostanu dla lasów państwowych.
 Lasy prywatne nie są liczone, więc aplikacja nie pokazuje tam wyniku.
 

@@ -47,6 +47,19 @@ def test_bbox_bdl_down_returns_no_fake_data(mock_sources):
     assert fc["features"] == [] and fc["meta"]["errors"]
 
 
+def test_bbox_open_meteo_429_uses_fallback_grid(mock_sources):
+    mock_sources.fail.add("open-meteo")
+    c = TestClient(app)
+    fc = c.get("/api/v1/predictions/bbox", params={**BBOX, "species": "boletus_edulis"}).json()
+    assert fc["meta"]["errors"] == []
+    assert fc["meta"]["weather_source"] == "grid"
+    assert fc["features"][0]["properties"]["confidence"] > 60
+    # cooldown: second request does not hit Open-Meteo again
+    calls = mock_sources.calls["open-meteo"]
+    c.get("/api/v1/predictions/bbox", params={**BBOX, "species": "suillus_luteus"})
+    assert mock_sources.calls["open-meteo"] == calls
+
+
 def test_bbox_weather_down_gives_partial_low_confidence(mock_sources):
     c = TestClient(app)
     ok = c.get("/api/v1/predictions/bbox", params={**BBOX, "species": "boletus_edulis"}).json()
@@ -54,7 +67,7 @@ def test_bbox_weather_down_gives_partial_low_confidence(mock_sources):
     from app.sources import open_meteo
     service._response_cache._data.clear()
     open_meteo._cache._data.clear()
-    mock_sources.fail.add("open-meteo")
+    mock_sources.fail.update({"open-meteo", "grid"})
     bad = c.get("/api/v1/predictions/bbox", params={**BBOX, "species": "boletus_edulis"}).json()
     assert bad["meta"]["errors"]
     assert bad["features"][0]["properties"]["confidence"] < ok["features"][0]["properties"]["confidence"] - 25

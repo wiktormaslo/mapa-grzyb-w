@@ -3,7 +3,7 @@ import pytest
 
 from app import config
 from app.prediction import service
-from app.sources import gbif, http, open_meteo, soilgrids
+from app.sources import gbif, http, open_meteo, soilgrids, weather_grid
 from tests.mock_sources import MockState, make_transport
 
 
@@ -17,6 +17,9 @@ def mock_sources(monkeypatch):
         c._data.clear()
     service._tile_sem = None
     open_meteo._variant_idx = 0
+    open_meteo._blocked_until = 0.0
+    weather_grid.reset()
+    monkeypatch.setattr(config, "WEATHER_GRID_URL", "https://raw.githubusercontent.com/x/y/weather-data/grid.json.gz")
     gbif.reset()
     yield state
     http.set_client(None)

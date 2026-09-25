@@ -13,7 +13,7 @@ from app.cache.ttl import TTLCache
 from app.prediction import grid
 from app.prediction.engine import Context, ForestInfo, predict
 from app.prediction.features import WeatherSeries, compute_weather_features
-from app.sources import bdl, gbif, open_meteo, soilgrids
+from app.sources import bdl, gbif, open_meteo, soilgrids, weather_grid
 from app.sources.http import SourceError
 from app.species import MODEL, SPECIES
 from app.species.sites import parse_site_type
@@ -70,6 +70,21 @@ async def _forest_tile(ti: int, tj: int, res: int) -> list[tuple[grid.Cell, Fore
     return await _forest_cache.get_or_fetch(("forest", res, ti, tj), fetch)
 
 
+async def get_weather(points: list[tuple[float, float]]) -> tuple[dict, list[str], str]:
+    """Live Open-Meteo first; points it could not serve come from the fallback grid.
+
+    Returns (series by point, errors, source label)."""
+    weather, errors = await open_meteo.fetch_weather(points)
+    missing = [p for p in points if p not in weather]
+    if not missing:
+        return weather, [], "open-meteo"
+    fallback = await weather_grid.nearest(missing)
+    weather.update(fallback)
+    if len(fallback) == len(missing):
+        return weather, [], "open-meteo" if len(fallback) < len(points) / 2 else "grid"
+    return weather, errors + ["weather grid: unavailable"], "partial"
+
+
 def _features_for(series: WeatherSeries | None, d: date) -> dict[str, Any] | None:
     if series is None:
         return None
@@ -115,7 +130,7 @@ async def predict_bbox(west: float, south: float, east: float, north: float, zoo
 
     t1 = time.monotonic()
     wpoints = {c: grid.snap_weather(*c.center, res) for c, _ in cells}
-    weather, werr = await open_meteo.fetch_weather(list(set(wpoints.values())))
+    weather, werr, wsource = await get_weather(list(set(wpoints.values())))
     errors.update(werr)
     t2 = time.monotonic()
     wfeat_cache: dict[tuple[float, float], dict | None] = {}
@@ -151,6 +166,7 @@ async def predict_bbox(west: float, south: float, east: float, north: float, zoo
                "score_s": round(t3 - t2, 2)}
     log.info("bbox res=%d tiles=%d cells=%d %s", res, len(tiles), len(features), timings)
     meta.update(resolution_m=res, cells=len(features), tiles=len(tiles), timings=timings,
+                weather_source=wsource,
                 weather_points=len(set(wpoints.values())), errors=sorted(errors),
                 gbif=gbif.status())
     out = {"type": "FeatureCollection", "features": features, "meta": meta}
@@ -196,13 +212,14 @@ async def predict_point(lat: float, lon: float, species: str, date_str: str | No
         return base
 
     wp = grid.snap_weather(lat, lon, 1000)
-    (weather, werr), soil = await asyncio.gather(open_meteo.fetch_weather([wp]),
-                                                 soilgrids.fetch_soil(lat, lon))
+    (weather, werr, wsource), soil = await asyncio.gather(get_weather([wp]),
+                                                          soilgrids.fetch_soil(lat, lon))
     errors.extend(werr)
     series = weather.get(wp)
     wf = _features_for(series, target)
     if series is not None:
-        sources.append("Open-Meteo")
+        sources.append("Open-Meteo" if wsource == "open-meteo"
+                       else "Open-Meteo (siatka krajowa ~30 km, odświeżana co 6 h)")
     if soil is not None:
         sources.append("SoilGrids (ISRIC)")
 

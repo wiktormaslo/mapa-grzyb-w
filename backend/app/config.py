@@ -15,6 +15,12 @@ OPEN_METEO_URL = _env("OPEN_METEO_URL", "https://api.open-meteo.com/v1/forecast"
 GBIF_URL = _env("GBIF_URL", "https://api.gbif.org/v1/occurrence/search")
 SOILGRIDS_URL = _env("SOILGRIDS_URL", "https://rest.isric.org/soilgrids/v2.0/properties/query")
 
+# fallback weather grid refreshed by GitHub Actions (branch weather-data); "" disables it
+WEATHER_GRID_URL = _env(
+    "WEATHER_GRID_URL",
+    "https://raw.githubusercontent.com/wiktormaslo/mapa-grzyb-w/weather-data/weather_grid.json.gz",
+)
+
 HTTP_TIMEOUT_S = float(_env("HTTP_TIMEOUT_S", "25"))
 DEBUG = _env("DEBUG", "0") == "1"
 DISABLE_GBIF = _env("DISABLE_GBIF", "0") == "1"

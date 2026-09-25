@@ -1,0 +1,40 @@
+name: Weather grid
+
+# Coarse national weather grid from Open-Meteo, published to the `weather-data` branch.
+# The backend uses it when Open-Meteo rate-limits the shared Render IP (HTTP 429).
+# Pushing to weather-data does not trigger CI or a Render deploy (they follow main).
+on:
+  schedule:
+    - cron: "23 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: weather-grid
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r backend/requirements.txt
+      - name: Build grid
+        working-directory: backend
+        run: python -u -m scripts.build_weather_grid "$RUNNER_TEMP/weather_grid.json.gz"
+      - name: Publish to weather-data branch (single commit, history not kept)
+        run: |
+          cd "$RUNNER_TEMP"
+          mkdir pub && cd pub
+          git init -q -b weather-data
+          cp "$RUNNER_TEMP/weather_grid.json.gz" .
+          git add weather_grid.json.gz
+          git -c user.name="github-actions" -c user.email="github-actions@users.noreply.github.com" \
+            commit -q -m "weather grid $(date -u +%FT%TZ)"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" weather-data
