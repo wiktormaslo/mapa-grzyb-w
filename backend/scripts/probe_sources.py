@@ -69,6 +69,30 @@ async def probe_bdl():
         show("BDL parsed ERROR", repr(e))
 
 
+async def probe_bdl_layers():
+    """All layers of the BDL services - looking for forests of other ownership (private etc.)."""
+    c = get_client()
+    root = config.BDL_LAYER_URL.rsplit("/MapServer", 1)[0].rsplit("/", 1)[0]
+    try:
+        r = await c.get(root, params={"f": "json"})
+        services = [sv["name"] for sv in r.json().get("services", [])]
+        print("BDL services:", services)
+    except Exception as e:  # noqa: BLE001
+        print("BDL services ERROR", repr(e))
+        services = ["WMS_BDL"]
+    for name in services:
+        if "MapServer" not in str(name) and not any(k in name for k in ("BDL", "Wydziel", "Las", "las")):
+            continue
+        try:
+            r = await c.get(f"{root}/{name}/MapServer/layers", params={"f": "json"})
+            for lyr in r.json().get("layers", []):
+                fields = [f["name"] for f in lyr.get("fields") or []]
+                print(f"  {name}/{lyr.get('id')}: {lyr.get('name')} | geom={lyr.get('geometryType')} "
+                      f"| maxRec={lyr.get('maxRecordCount')} | fields={fields[:18]}")
+        except Exception as e:  # noqa: BLE001
+            print(f"  {name} ERROR {e!r}")
+
+
 async def probe_meteo():
     pts = [grid.snap_weather(LAT, LON, 1000), grid.snap_weather(53.5, 22.0, 1000)]
     data, errors = await open_meteo.fetch_weather(pts)
@@ -196,6 +220,7 @@ async def main():
     if len(sys.argv) > 1 and sys.argv[1]:
         await probe_app(sys.argv[1])  # first, while the server is fresh
     await probe_frontend_services()
+    await probe_bdl_layers()
     await probe_bdl()
     await probe_meteo()
     await probe_gbif()
