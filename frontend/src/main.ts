@@ -37,7 +37,7 @@ function setStatus(msg: string, kind: "" | "err" | "busy" = "") {
 const map = new maplibregl.Map({
   container: "map",
   style: gtaStyle(),
-  center: [21.35, 52.05],
+  center: [18.21, 50.35], // Kędzierzyn-Koźle
   zoom: 10.5,
   minZoom: 5,
   maxZoom: 15.3, // keeps heatmap radius (2.2 cells of 250 m) under the 512 px source buffer
