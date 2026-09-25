@@ -220,17 +220,40 @@ def weather_part(cfg: SpeciesConfig, w: dict[str, Any] | None, target: date,
                        pen["drought"] * pen["heat"] * pen["frost"])
 
 
+# forest-only components repeat a lot (many stands share species/site/age), so they are memoised
+_STAND_CACHE: dict[tuple, tuple] = {}
+
+
+def _stand_components(cfg: SpeciesConfig, forest: ForestInfo | None, soil: SoilInfo | None,
+                      m: ModelSettings) -> tuple:
+    key = None
+    if soil is None and m is MODEL:
+        key = (cfg.id, None if forest is None else (
+            tuple(forest.species), forest.site_type, forest.stand_age))
+        hit = _STAND_CACHE.get(key)
+        if hit is not None:
+            return hit
+    soil_val, soil_source = soil_score(cfg, soil, forest)
+    out = (host_score(cfg, forest, m), habitat_score(cfg, forest), soil_val, soil_source,
+           stand_score(cfg, forest))
+    if key is not None:
+        if len(_STAND_CACHE) > 50_000:
+            _STAND_CACHE.clear()
+        _STAND_CACHE[key] = out
+    return out
+
+
 def _habitat(cfg: SpeciesConfig, ctx: Context, m: ModelSettings):
     forest = ctx.forest
+    host, habitat, soil_val, soil_source, stand = _stand_components(cfg, forest, ctx.soil, m)
     comps: dict[str, float | None] = {
-        "host": host_score(cfg, forest, m),
-        "habitat": habitat_score(cfg, forest),
-        "soil": None,
-        "stand": stand_score(cfg, forest),
+        "host": host,
+        "habitat": habitat,
+        "soil": soil_val,
+        "stand": stand,
         "terrain": terrain_score(cfg, ctx.elevation),
         "prior": prior_score(ctx.gbif_count, m),
     }
-    comps["soil"], soil_source = soil_score(cfg, ctx.soil, forest)
     hw = cfg.habitat_weights or m.habitat_weights
     filled = {k: (v if v is not None else m.unknown_component[k]) for k, v in comps.items()}
     habitat_raw = sum(hw[k] * filled[k] for k in hw) / sum(hw.values())

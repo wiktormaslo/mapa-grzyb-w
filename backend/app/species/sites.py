@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 
 from app.species.trees import normalize_code
 
@@ -36,6 +37,7 @@ class SiteType:
         return " ".join(p for p in parts if p) or self.raw
 
 
+@lru_cache(maxsize=512)
 def parse_site_type(code: str | None) -> SiteType | None:
     if not code or not code.strip():
         return None

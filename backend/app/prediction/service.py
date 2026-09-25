@@ -54,7 +54,8 @@ def resolve_species(value: str) -> list[str]:
     return [value]
 
 
-async def _forest_tile(ti: int, tj: int, res: int) -> list[tuple[grid.Cell, ForestInfo]]:
+async def _forest_tile(ti: int, tj: int, res: int) -> list[tuple[grid.Cell, list[ForestInfo]]]:
+    """Forest stands at the sample points of each cell of a tile (cells without forest dropped)."""
     global _tile_sem
     if _tile_sem is None:
         _tile_sem = asyncio.Semaphore(4)
@@ -63,10 +64,17 @@ async def _forest_tile(ti: int, tj: int, res: int) -> list[tuple[grid.Cell, Fore
         cells = grid.tile_cells(ti, tj, res)
         if not cells:
             return []
+        n = grid.samples_per_side(res)
+        points = [p for c in cells for p in c.subpoints(n)]
         async with _tile_sem:
-            infos = await bdl.query_points([c.center for c in cells],
-                                           simplify_deg=min(0.001, cells[0].dlat / 20))
-        return [(c, f) for c, f in zip(cells, infos) if f is not None]
+            infos = await bdl.query_points(points, simplify_deg=min(0.001, cells[0].dlat / (20 * n)))
+        k = n * n
+        out = []
+        for idx, c in enumerate(cells):
+            forests = [f for f in infos[idx * k:(idx + 1) * k] if f is not None]
+            if forests:
+                out.append((c, forests))
+        return out
 
     return await _forest_cache.get_or_fetch(("forest", res, ti, tj), fetch)
 
@@ -120,7 +128,7 @@ async def predict_bbox(west: float, south: float, east: float, north: float, zoo
     results = await asyncio.gather(*(_forest_tile(ti, tj, res) for ti, tj in tiles),
                                    return_exceptions=True)
     errors: set[str] = set()
-    cells: list[tuple[grid.Cell, ForestInfo]] = []
+    cells: list[tuple[grid.Cell, list[ForestInfo]]] = []
     for r in results:
         if isinstance(r, SourceError):
             errors.add(str(r))
@@ -139,7 +147,7 @@ async def predict_bbox(west: float, south: float, east: float, north: float, zoo
     wpart_cache: dict = {}
 
     features = []
-    for cell, forest in cells:
+    for cell, forests in cells:
         wp = wpoints[cell]
         if wp not in wfeat_cache:
             wfeat_cache[wp] = _features_for(weather.get(wp), target)
@@ -152,11 +160,18 @@ async def predict_bbox(west: float, south: float, east: float, north: float, zoo
             key = (sid, wp)
             if key not in wpart_cache:
                 wpart_cache[key] = weather_part(SPECIES[sid], wf, target)
-            ctx = Context(forest=forest, weather=wf,
-                          gbif_count=gbif.count_near(sid, lat, lon),
-                          elevation=series.elevation if series else None,
-                          lead_days=lead, resolution_m=res, weather_coarse=wp in coarse)
-            score, conf = score_only(SPECIES[sid], ctx, wpart_cache[key])
+            gcount = gbif.count_near(sid, lat, lon)
+            elev = series.elevation if series else None
+            # cell value = mean over the forest sample points inside it
+            tot_s = tot_c = 0
+            for forest in forests:
+                ctx = Context(forest=forest, weather=wf, gbif_count=gcount, elevation=elev,
+                              lead_days=lead, resolution_m=res, weather_coarse=wp in coarse)
+                sc, cf = score_only(SPECIES[sid], ctx, wpart_cache[key])
+                tot_s += sc
+                tot_c += cf
+            score = round(tot_s / len(forests))
+            conf = round(tot_c / len(forests))
             scores[sid] = score
             if best is None or score > best["score"]:
                 best = {"score": score, "confidence": conf, "species": sid}

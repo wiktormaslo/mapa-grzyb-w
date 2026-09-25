@@ -8,7 +8,7 @@ M_PER_DEG_LAT = 111_320.0
 M_PER_DEG_LON = 111_320.0 * math.cos(math.radians(52.0))  # fixed reference latitude
 
 LADDER = [250, 500, 1000, 2000, 4000, 8000, 16000, 32000]
-MAX_CELLS = 2500
+MAX_CELLS = 2000
 TILE = 16  # cells per tile side (one BDL request per tile)
 
 # Poland bounding box (with a small margin)
@@ -33,6 +33,20 @@ class Cell:
     def center(self) -> tuple[float, float]:
         """(lat, lon)"""
         return ((self.j + 0.5) * self.dlat, (self.i + 0.5) * self.dlon)
+
+
+    def subpoints(self, n: int) -> list[tuple[float, float]]:
+        """n x n sample points (lat, lon). For n=2 they are exactly the centres of the four cells
+        of the next finer level, so a coarse cell is the average of its finer cells."""
+        if n <= 1:
+            return [self.center]
+        return [((self.j + (b + 0.5) / n) * self.dlat, (self.i + (a + 0.5) / n) * self.dlon)
+                for b in range(n) for a in range(n)]
+
+
+def samples_per_side(res: int) -> int:
+    """Cells coarser than the finest level are averaged from 2x2 samples, not a single point."""
+    return 1 if res <= LADDER[0] else 2
 
 
 def min_res_for_zoom(zoom: float) -> int:

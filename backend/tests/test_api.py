@@ -147,3 +147,29 @@ def test_zoomed_out_does_not_ask_browser_to_refine(mock_sources):
         "west": 20.5, "south": 51.5, "east": 22.5, "north": 52.6, "zoom": 7}).json()
     assert fc["meta"]["resolution_m"] > 4000
     assert "weather_missing" not in fc["meta"]
+
+
+def test_zoom_levels_are_consistent(mock_sources):
+    """A 500 m cell is the mean of its four 250 m cells (same data at every zoom)."""
+    from collections import defaultdict
+    from app.prediction import grid
+    c = TestClient(app)
+    params = {"west": 21.38, "south": 52.03, "east": 21.42, "north": 52.05, "species": "boletus_edulis"}
+    fine = c.get("/api/v1/predictions/bbox", params={**params, "zoom": 14}).json()
+    coarse = c.get("/api/v1/predictions/bbox", params={**params, "zoom": 12}).json()
+    assert fine["meta"]["resolution_m"] == 250 and coarse["meta"]["resolution_m"] == 500
+    d250 = grid.Cell(0, 0, 250)
+    fine_by_parent = defaultdict(list)
+    for f in fine["features"]:
+        lon, lat = f["geometry"]["coordinates"]
+        i, j = int(lon // d250.dlon), int(lat // d250.dlat)
+        fine_by_parent[(i // 2, j // 2)].append(f["properties"]["score"])
+    d500 = grid.Cell(0, 0, 500)
+    checked = 0
+    for f in coarse["features"]:
+        lon, lat = f["geometry"]["coordinates"]
+        kids = fine_by_parent.get((int(lon // d500.dlon), int(lat // d500.dlat)))
+        if kids and len(kids) == 4:
+            assert abs(f["properties"]["score"] - sum(kids) / 4) <= 1
+            checked += 1
+    assert checked >= 3
