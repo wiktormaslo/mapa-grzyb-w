@@ -17,8 +17,9 @@ export function addPredictionLayers(map: MlMap, mode: ViewMode) {
   map.addSource(SRC, { type: "geojson", data: { type: "FeatureCollection", features: [] }, buffer: 512 });
 
 
-  const heatColor: unknown[] = ["interpolate", ["linear"], ["heatmap-density"]];
-  for (const [x, c] of RAMP) heatColor.push(x / 100, c);
+  // density 0 = no analysed cell nearby -> fully transparent; any analysed forest -> faint tint
+  const heatColor: unknown[] = ["interpolate", ["linear"], ["heatmap-density"], 0, "rgba(0,0,0,0)", 0.03, RAMP[0][1]];
+  for (const [x, c] of RAMP.slice(1)) heatColor.push(x / 100, c);
   map.addLayer({
     id: "pred-heat",
     type: "heatmap",
@@ -26,7 +27,8 @@ export function addPredictionLayers(map: MlMap, mode: ViewMode) {
     filter: ["==", ["geometry-type"], "Point"],
     layout: { visibility: mode === "heat" ? "visible" : "none" },
     paint: {
-      "heatmap-weight": ["/", ["get", "score"], 100],
+      // small floor so that even a 0-score forest shows the "analysed" tint
+      "heatmap-weight": ["max", 0.06, ["/", ["get", "score"], 100]],
       "heatmap-intensity": INTENSITY,
       // pixel radius = K * cell width in px; cell width at zoom z = r0 * 2^z
       "heatmap-radius": ["interpolate", ["exponential", 2], ["zoom"],

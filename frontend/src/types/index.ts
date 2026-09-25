@@ -79,6 +79,7 @@ export interface PointResponse extends WeatherGap {
     site_type_label: string | null;
     stand_age: number | null;
     address: string | null;
+    owner?: string | null;
   };
   results: PointPrediction[];
 }

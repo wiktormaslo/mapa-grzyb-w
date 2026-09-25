@@ -32,7 +32,7 @@ Score    = 100 × x^2.2      # kalibracja: przeciętne warunki ~30–45, 85+ tyl
 
 | Źródło | Użycie |
 |---|---|
-| BDL (Bank Danych o Lasach), ArcGIS REST `WMS_BDL/MapServer/5` | wydzielenia Lasów Państwowych: gatunek panujący, typ siedliska, wiek |
+| BDL (Bank Danych o Lasach), ArcGIS REST `WMS_BDL/MapServer/5` i `/6` | wydzielenia Lasów Państwowych oraz lasów innych własności z planów PUL: gatunek panujący, typ siedliska, wiek |
 | Open-Meteo | 40 dni historii + 6 dni prognozy: opad, temperatura, RH, ET0, VPD, wilgotność i temperatura gleby |
 | GBIF | obserwacje z Polski: mały prior (nie może dominować wyniku) |
 | SoilGrids | pH i skład gleby, tylko w szczegółach klikniętego punktu (API jest wolne) |
@@ -44,8 +44,9 @@ Wtedy działają dwa zabezpieczenia:
 2. workflow `weather-grid.yml` co 6 godzin buduje z GitHub Actions krajową siatkę pogody (~30 km)
    i zapisuje ją na gałęzi `weather-data`. Workflow `probe.yml`, uruchamiany ręcznie, sprawdza źródła i wdrożoną aplikację.
 
-Ograniczenie: BDL udostępnia szczegółowe dane drzewostanu dla lasów państwowych.
-Lasy prywatne nie są liczone, więc aplikacja nie pokazuje tam wyniku.
+Ograniczenie: lasy, których nie ma w żadnej warstwie BDL (część lasów prywatnych bez planu PUL),
+nie mają wyniku. Na mapie są czysto ciemnozielone, a każdy przeanalizowany las ma choćby lekkie
+zabarwienie, więc „brak danych” nie wygląda jak „słabe warunki”. Tereny poza lasem są delikatnie kreskowane.
 
 ## Uruchomienie lokalne
 

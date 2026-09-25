@@ -31,7 +31,7 @@ def test_bbox_end_to_end(mock_sources):
     alder = [f["properties"]["score"] for f in feats if lon(f) > 21.41]
     assert min(pine) > 60 and max(alder) < 25
     # grouped requests: few BDL calls, one weather call for many cells
-    assert mock_sources.calls["bdl"] <= 9  # one per 16x16 tile, not per cell
+    assert mock_sources.calls["bdl"] <= 18  # one per 16x16 tile and BDL layer, not per cell
     assert mock_sources.calls["open-meteo"] == 1
 
 

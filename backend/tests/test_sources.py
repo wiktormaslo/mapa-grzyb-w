@@ -26,7 +26,7 @@ def test_bdl_point_matching_with_hole():
 def test_bdl_query_grouped(mock_sources):
     pts = [(52.05, 21.35), (52.05, 21.45), (53.0, 23.0)]
     res = asyncio.run(bdl.query_points(pts))
-    assert mock_sources.calls["bdl"] == 1
+    assert mock_sources.calls["bdl"] == 2  # one request per BDL layer, not per point
     assert res[0].species[0][0] == "Pinus"
     assert res[1].species[0][0] == "Alnus"
     assert res[2] is None
@@ -92,3 +92,14 @@ def test_bdl_clear_cut_is_not_forest():
     clear_cut = {"attributes": {"area_type_cd": "ZRĄB", "site_type_cd": "BŚW"},
                  "geometry": {"rings": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]]}}
     assert bdl.match_points([(0.5, 0.5)], [clear_cut]) == [None]
+
+
+def test_bdl_other_ownership_fills_gaps(mock_sources):
+    pts = [(52.05, 21.35), (52.05, 21.55), (53.0, 23.0)]
+    res = asyncio.run(bdl.query_points(pts))
+    assert res[0].owner == "Lasy Państwowe"
+    assert res[1].species[0][0] == "Betula" and res[1].owner == "osoby fizyczne"
+    assert res[2] is None
+    mock_sources.fail.add("bdl-other")
+    res = asyncio.run(bdl.query_points(pts))
+    assert res[0] is not None and res[1] is None  # optional layer failing is not fatal

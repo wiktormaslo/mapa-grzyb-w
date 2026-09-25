@@ -6,6 +6,7 @@ Attribute names are resolved defensively; anything not found stays UNKNOWN (None
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
@@ -27,6 +28,7 @@ COMPOSITION_FIELDS = ("species_comp", "sklad", "sklad_gat", "composition", "spec
 AGE_FIELDS = ("species_age", "spec_age", "age", "wiek", "stand_age")
 SITE_FIELDS = ("site_type_cd", "site_type", "siedlisko", "tsl", "typ_siedl")
 SHARE_FIELDS = ("species_share", "udzial", "part_cd")
+OWNER_FIELDS = ("owner_cat_name", "owner_name", "owner")
 ADDRESS_FIELDS = ("adress_forest", "adres_forest", "address_forest", "adr_for", "adres_les")
 STRUCTURE_FIELDS = ("stand_stru", "stand_struct")
 AREA_TYPE_FIELDS = ("area_type_cd", "area_type")
@@ -85,6 +87,8 @@ def parse_attributes(raw: dict[str, Any]) -> ForestInfo:
     info.site_type = str(site).strip() if site is not None else None
     addr = _pick(attrs, ADDRESS_FIELDS)
     info.address = str(addr).strip() if addr is not None else None
+    owner = _pick(attrs, OWNER_FIELDS)
+    info.owner = str(owner).strip() if owner is not None else None
     return info
 
 
@@ -129,7 +133,7 @@ def match_points(points: list[tuple[float, float]], features: list[dict[str, Any
     return result
 
 
-async def _query(points: list[tuple[float, float]], simplify_deg: float) -> tuple[list[dict], bool]:
+async def _query(url: str, points: list[tuple[float, float]], simplify_deg: float) -> tuple[list[dict], bool]:
     geometry = {"points": [[round(lon, 6), round(lat, 6)] for lat, lon in points],
                 "spatialReference": {"wkid": 4326}}
     data = {
@@ -146,7 +150,7 @@ async def _query(points: list[tuple[float, float]], simplify_deg: float) -> tupl
     }
     t0 = time.monotonic()
     try:
-        r = await get_client().post(f"{config.BDL_LAYER_URL}/query", data=data)
+        r = await get_client().post(f"{url}/query", data=data)
     except httpx.HTTPError as e:
         raise SourceError("bdl", f"connection error: {e}") from e
     if r.status_code != 200:
@@ -163,16 +167,45 @@ async def _query(points: list[tuple[float, float]], simplify_deg: float) -> tupl
     return body.get("features") or [], bool(body.get("exceededTransferLimit"))
 
 
-async def query_points(points: list[tuple[float, float]], simplify_deg: float = 0.00005,
+async def _query_layer(url: str, points: list[tuple[float, float]], simplify_deg: float,
                        _depth: int = 0) -> list[ForestInfo | None]:
-    """ForestInfo (or None = no State Forests subdivision at the point) for each (lat, lon)."""
     if not points:
         return []
-    features, exceeded = await _query(points, simplify_deg)
+    features, exceeded = await _query(url, points, simplify_deg)
     if exceeded and len(points) > 1 and _depth < MAX_SPLIT_DEPTH:
         mid = len(points) // 2
-        return (await query_points(points[:mid], simplify_deg, _depth + 1)
-                + await query_points(points[mid:], simplify_deg, _depth + 1))
+        return (await _query_layer(url, points[:mid], simplify_deg, _depth + 1)
+                + await _query_layer(url, points[mid:], simplify_deg, _depth + 1))
     if exceeded:
         log.warning("BDL transfer limit exceeded for %d points", len(points))
     return match_points(points, features)
+
+
+async def query_points(points: list[tuple[float, float]],
+                       simplify_deg: float = 0.00005) -> list[ForestInfo | None]:
+    """ForestInfo for each (lat, lon), or None where BDL has no tree stand.
+
+    State Forests (layer 5) and other-ownership forests from PUL plans (layer 6) are queried in
+    parallel; the second layer only fills points the first one does not cover. A failure of the
+    optional second layer is logged, not fatal."""
+    if not points:
+        return []
+    tasks = [_query_layer(config.BDL_LAYER_URL, points, simplify_deg)]
+    if config.BDL_OTHER_LAYER_URL:
+        tasks.append(_query_layer(config.BDL_OTHER_LAYER_URL, points, simplify_deg))
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    if isinstance(results[0], BaseException):
+        raise results[0]
+    merged = list(results[0])
+    for i, info in enumerate(merged):
+        if info is not None:
+            info.owner = info.owner or "Lasy Państwowe"
+    if len(results) > 1:
+        if isinstance(results[1], BaseException):
+            log.warning("BDL other-ownership layer failed: %s", results[1])
+        else:
+            for i, other in enumerate(results[1]):
+                if merged[i] is None and other is not None:
+                    other.source = "BDL (poza LP, PUL)"
+                    merged[i] = other
+    return merged

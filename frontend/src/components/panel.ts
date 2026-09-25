@@ -107,8 +107,8 @@ export function showPoint(r: PointResponse) {
   if (!r.in_forest) {
     const msg = r.errors.some((e) => e.startsWith("bdl"))
       ? "Nie udało się pobrać danych leśnych (BDL) – brak wyniku."
-      : "Tu nie ma drzewostanu Lasów Państwowych w Banku Danych o Lasach. Indeks liczymy tylko tam, gdzie znamy las.";
-    shell(`${head}${errs}<div class="empty-state"><h2>Poza lasem</h2><p>${msg}</p></div>`);
+      : "Bank Danych o Lasach nie ma tu opisu drzewostanu (ani Lasów Państwowych, ani planów lasów prywatnych). Jeśli to las, brakuje dla niego danych – to nie znaczy, że nie ma w nim grzybów.";
+    shell(`${head}${errs}<div class="empty-state"><h2>Brak danych o lesie</h2><p>${msg}</p></div>`);
     return;
   }
   const fo = r.forest!;
@@ -119,6 +119,7 @@ export function showPoint(r: PointResponse) {
       <h4>Drzewostan</h4>
       <div class="kv"><span>Drzewa</span><em>${trees}</em></div>
       <div class="kv"><span>Siedlisko</span><em>${esc(fo.site_type_label ?? fo.site_type ?? "brak danych")}</em></div>
+      ${fo.owner ? `<div class="kv"><span>Własność</span><em>${esc(fo.owner)}</em></div>` : ""}
       <div class="kv"><span>Wiek</span><em>${fo.stand_age !== null ? `${fo.stand_age} lat` : "brak danych"}</em></div>
       ${fo.address ? `<div class="kv"><span>Adres leśny</span><em class="mono">${esc(fo.address.replace(/\s+/g, ""))}</em></div>` : ""}
     </section>`;

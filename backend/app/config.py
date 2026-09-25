@@ -11,6 +11,12 @@ BDL_LAYER_URL = _env(
     "BDL_LAYER_URL",
     "https://mapserver.bdl.lasy.gov.pl/arcgis/rest/services/WMS_BDL/MapServer/5",
 )
+# forests outside State Forests (private, municipal...) from simplified management plans (PUL);
+# same attributes as layer 5. "" disables.
+BDL_OTHER_LAYER_URL = _env(
+    "BDL_OTHER_LAYER_URL",
+    "https://mapserver.bdl.lasy.gov.pl/arcgis/rest/services/WMS_BDL/MapServer/6",
+)
 OPEN_METEO_URL = _env("OPEN_METEO_URL", "https://api.open-meteo.com/v1/forecast")
 GBIF_URL = _env("GBIF_URL", "https://api.gbif.org/v1/occurrence/search")
 SOILGRIDS_URL = _env("SOILGRIDS_URL", "https://rest.isric.org/soilgrids/v2.0/properties/query")

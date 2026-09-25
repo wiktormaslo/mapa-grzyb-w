@@ -12,6 +12,11 @@ PINE = {
                    "species_cd_d": "SO", "species_age": 65, "part_cd": "DRZ"},
     "geometry": {"rings": [[[21.30, 52.00], [21.40, 52.00], [21.40, 52.10], [21.30, 52.10], [21.30, 52.00]]]},
 }
+PRIVATE = {
+    "attributes": {"adress_forest": "prywatny", "area_type_cd": "D-STAN", "site_type_cd": "BMŚW",
+                   "species_cd_d": "BRZ", "species_age": 40, "owner_cat_name": "osoby fizyczne"},
+    "geometry": {"rings": [[[21.50, 52.00], [21.60, 52.00], [21.60, 52.10], [21.50, 52.10], [21.50, 52.00]]]},
+}
 ALDER = {
     "attributes": {"adress_forest": "14-15-1-01-101-b-00", "site_type": "Ol",
                    "species_cd_d": "OL", "species_age": 50},
@@ -55,6 +60,10 @@ def make_transport(state: MockState) -> httpx.MockTransport:
                 return httpx.Response(503, text="down")
             form = parse_qs(request.content.decode())
             assert form["geometryType"] == ["esriGeometryMultipoint"]
+            if request.url.path.rstrip("/").endswith("/6/query"):
+                if "bdl-other" in state.fail:
+                    return httpx.Response(500)
+                return httpx.Response(200, json={"features": [PRIVATE]})
             return httpx.Response(200, json={"features": [PINE, ALDER]})
         if "open-meteo" in host:
             state.calls["open-meteo"] += 1

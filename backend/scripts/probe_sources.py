@@ -61,6 +61,12 @@ async def probe_bdl():
             print(f"BDL timing {n * n} points ERROR after {time.monotonic() - t0:.1f}s: {e!r}")
     pts = [(LAT + dy * 0.004, LON + dx * 0.006) for dy in range(-3, 4) for dx in range(-3, 4)]
     try:
+        other = await bdl._query_layer(config.BDL_OTHER_LAYER_URL, pts, 0.0002)
+        print(f"BDL other-ownership layer: {sum(1 for x in other if x)} of {len(pts)} points; examples:",
+              [x.__dict__ for x in other if x][:2])
+    except Exception as e:  # noqa: BLE001
+        print("BDL other-ownership ERROR", repr(e))
+    try:
         infos = await bdl.query_points(pts)
         found = [i for i in infos if i]
         show("BDL parsed (app parser)", {"points": len(pts), "in_forest": len(found),

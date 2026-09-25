@@ -204,6 +204,7 @@ def _forest_summary(forest: ForestInfo) -> dict[str, Any]:
         "site_type_label": site.label_pl() if site else None,
         "stand_age": forest.stand_age,
         "address": forest.address,
+        "owner": forest.owner,
     }
 
 

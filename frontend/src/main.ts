@@ -81,7 +81,10 @@ function renderLegend() {
     <div class="legend-bar" style="background:${cssGradient()}"></div>
     <div class="legend-ticks">${[0, 20, 40, 60, 80, 100].map((t) => `<span>${t}</span>`).join("")}</div>
     <div class="legend-labels">${CLASSES.map((c) => `<span>${c.label}</span>`).join("")}</div>
-    <div class="legend-nodata"><i></i>teren poza lasem</div>`;
+    <div class="legend-keys">
+      <div class="legend-nodata"><i class="k-nodata"></i>las bez danych BDL</div>
+      <div class="legend-nodata"><i></i>teren poza lasem</div>
+    </div>`;
 }
 
 function renderSpecies() {

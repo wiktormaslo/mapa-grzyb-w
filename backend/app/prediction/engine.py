@@ -22,6 +22,7 @@ class ForestInfo:
     site_type: str | None = None
     stand_age: float | None = None
     address: str | None = None
+    owner: str | None = None
     source: str = "BDL"
 
 

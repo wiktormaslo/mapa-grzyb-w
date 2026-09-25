@@ -4,7 +4,7 @@
  * pop out of the dark green basemap.
  */
 export const RAMP: [number, string][] = [
-  [0, "rgba(96, 86, 255, 0)"],
+  [0, "rgba(96, 86, 255, 0.13)"], // analysed forest is always faintly tinted (vs. no data)
   [15, "rgba(106, 94, 255, 0.2)"],
   [30, "rgba(92, 132, 255, 0.36)"],
   [45, "rgba(52, 222, 255, 0.48)"],
