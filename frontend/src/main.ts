@@ -2,109 +2,137 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./style.css";
 import { fetchBbox, fetchPoint, fillWeatherGap, waitForServer } from "./api/client";
-import { addPredictionLayer, setPredictions } from "./map/layer";
-import { CLASSES } from "./map/scale";
-import { showError, showLoading, showPoint } from "./components/panel";
-import type { SpeciesInfo } from "./types";
-
-const OSM_RASTER: maplibregl.StyleSpecification = {
-  version: 8,
-  sources: {
-    osm: {
-      type: "raster",
-      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-      tileSize: 256,
-      attribution: "© OpenStreetMap contributors",
-    },
-  },
-  layers: [{ id: "osm", type: "raster", source: "osm" }],
-};
+import { gtaStyle, rasterFallbackStyle } from "./map/basemap";
+import { addPredictionLayers, setMode, setPredictions, type ViewMode } from "./map/layer";
+import { CLASSES, cssGradient } from "./map/scale";
+import { closePanel, onPanelClose, showError, showLoading, showPoint } from "./components/panel";
+import { initSearch } from "./components/search";
+import type { BboxResponse, SpeciesInfo } from "./types";
 
 const state = {
   species: "all",
   date: "",
+  mode: (localStorageGet("mode") as ViewMode) || "heat",
   speciesList: [] as SpeciesInfo[],
   ready: false,
+  last: null as BboxResponse | null,
 };
 
+function localStorageGet(k: string) {
+  try { return localStorage.getItem(k); } catch { return null; }
+}
+function localStorageSet(k: string, v: string) {
+  try { localStorage.setItem(k, v); } catch { /* private mode */ }
+}
+
+// ------------------------------------------------------------------ status pill
 const statusEl = document.getElementById("status")!;
-const setStatus = (msg: string, kind: "" | "err" | "busy" = "") => {
+function setStatus(msg: string, kind: "" | "err" | "busy" = "") {
   statusEl.textContent = msg;
   statusEl.className = kind;
-};
+  statusEl.hidden = !msg;
+}
 
+// ------------------------------------------------------------------ map
 const map = new maplibregl.Map({
   container: "map",
-  style: "https://tiles.openfreemap.org/styles/positron",
-  center: [21.35, 52.05], // start small: Mazowsze near Warsaw
-  zoom: 11,
+  style: gtaStyle(),
+  center: [21.35, 52.05],
+  zoom: 10.5,
   minZoom: 5,
   maxZoom: 16,
   maxBounds: [[10, 46.5], [28.5, 57]],
+  attributionControl: { compact: true },
 });
 map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
 map.addControl(new maplibregl.GeolocateControl({}), "bottom-right");
 
-let styleFallbackDone = false;
+let usedFallback = false;
 map.on("error", (e) => {
-  // basemap unavailable -> fall back to plain OSM raster tiles
-  if (!styleFallbackDone && !map.isStyleLoaded() && String(e.error?.message ?? "").match(/style|fetch|Failed/i)) {
-    styleFallbackDone = true;
-    map.setStyle(OSM_RASTER);
+  const msg = String((e as { error?: Error }).error?.message ?? "");
+  // vector basemap unavailable -> darkened OSM raster
+  if (!usedFallback && /openfreemap|Failed to fetch|NetworkError|AJAXError/i.test(msg) && !map.isStyleLoaded()) {
+    usedFallback = true;
+    map.setStyle(rasterFallbackStyle());
   }
 });
 map.on("style.load", () => {
-  addPredictionLayer(map);
+  addPredictionLayers(map, state.mode);
+  if (state.last) setPredictions(map, state.last);
   if (state.ready) scheduleLoad(0);
 });
 
+// ------------------------------------------------------------------ pin
+const pinEl = document.createElement("div");
+pinEl.className = "pin";
+pinEl.innerHTML = "<span></span>";
+const pin = new maplibregl.Marker({ element: pinEl, anchor: "center" });
+onPanelClose(() => pin.remove());
+
 // ------------------------------------------------------------------ controls
 function renderLegend() {
-  document.getElementById("legend")!.innerHTML =
-    `<b>Indeks warunków</b>` +
-    CLASSES.map((c) => `<div><i style="background:${c.color}"></i>${c.min}–${Math.min(c.max, 100)} ${c.label}</div>`).join("") +
-    `<div class="small muted">bledszy kolor = mniejsza pewność</div>`;
-}
-
-function button(label: string, active: boolean, onClick: () => void, title = "") {
-  const b = document.createElement("button");
-  b.textContent = label;
-  b.title = title;
-  if (active) b.classList.add("active");
-  b.addEventListener("click", onClick);
-  return b;
+  document.getElementById("legend")!.innerHTML = `
+    <div class="legend-bar" style="background:${cssGradient()}"></div>
+    <div class="legend-ticks">${[0, 20, 40, 60, 80, 100].map((t) => `<span>${t}</span>`).join("")}</div>
+    <div class="legend-labels">${CLASSES.map((c) => `<span>${c.label}</span>`).join("")}</div>`;
 }
 
 function renderSpecies() {
-  const box = document.getElementById("species-buttons")!;
-  box.innerHTML = "";
-  const opts = [{ id: "all", label: "Wszystkie", title: "Najwyższy wynik spośród 4 gatunków" }].concat(
-    state.speciesList.map((s) => ({ id: s.id, label: s.name_short, title: `${s.name_pl} (${s.latin})` })),
+  const box = document.getElementById("species")!;
+  const opts = [{ id: "all", label: "Wszystkie", title: "Najwyższy wynik spośród 10 gatunków" }].concat(
+    state.speciesList.map((s) => ({ id: s.id, label: s.name_short, title: `${s.name_pl} · ${s.latin}` })),
   );
-  for (const o of opts) {
-    box.appendChild(button(o.label, state.species === o.id, () => {
-      state.species = o.id;
-      renderSpecies();
-      scheduleLoad(0);
-    }, o.title));
-  }
+  box.innerHTML = opts.map((o) =>
+    `<button data-id="${o.id}" title="${o.title}" class="${state.species === o.id ? "on" : ""}">${o.label}</button>`).join("");
+  box.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+    state.species = (b as HTMLElement).dataset.id!;
+    renderSpecies();
+    scheduleLoad(0);
+  }));
 }
 
-function renderDates(today: string, days: number) {
-  const box = document.getElementById("date-buttons")!;
-  box.innerHTML = "";
+function renderDays(today: string, n: number) {
+  const box = document.getElementById("days")!;
   const base = new Date(today + "T12:00:00");
-  for (let i = 0; i < days; i++) {
-    const d = new Date(base.getTime() + i * 86400000);
+  const days = Array.from({ length: n }, (_, i) => new Date(base.getTime() + i * 86400000));
+  box.innerHTML = days.map((d, i) => {
     const iso = d.toISOString().slice(0, 10);
-    const label = i === 0 ? "Dzisiaj" : `+${i}`;
-    box.appendChild(button(label, state.date === iso, () => {
-      state.date = iso;
-      renderDates(today, days);
-      scheduleLoad(0);
-    }, d.toLocaleDateString("pl-PL", { weekday: "long", day: "numeric", month: "long" })));
-  }
+    const wd = i === 0 ? "dziś" : d.toLocaleDateString("pl-PL", { weekday: "short" }).replace(".", "");
+    return `<button data-d="${iso}" class="${state.date === iso ? "on" : ""}"
+      title="${d.toLocaleDateString("pl-PL", { weekday: "long", day: "numeric", month: "long" })}">
+      <span>${wd}</span><b>${d.getDate()}</b></button>`;
+  }).join("");
+  box.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+    state.date = (b as HTMLElement).dataset.d!;
+    renderDays(today, n);
+    scheduleLoad(0);
+  }));
 }
+
+document.querySelectorAll<HTMLButtonElement>("#view button").forEach((b) => {
+  b.classList.toggle("on", b.dataset.mode === state.mode);
+  b.addEventListener("click", () => {
+    state.mode = b.dataset.mode as ViewMode;
+    localStorageSet("mode", state.mode);
+    document.querySelectorAll("#view button").forEach((x) => x.classList.toggle("on", x === b));
+    setMode(map, state.mode);
+  });
+});
+
+const dock = document.getElementById("dock")!;
+document.getElementById("dock-toggle")!.addEventListener("click", (e) => {
+  const open = dock.classList.toggle("collapsed") === false;
+  (e.currentTarget as HTMLElement).setAttribute("aria-expanded", String(open));
+});
+if (window.matchMedia("(max-width: 720px)").matches) dock.classList.add("collapsed");
+
+initSearch(document.getElementById("search")!, (p) => {
+  if (p.bbox && p.bbox[2] - p.bbox[0] > 0.01) {
+    map.fitBounds([[p.bbox[0], p.bbox[1]], [p.bbox[2], p.bbox[3]]], { padding: 60, maxZoom: 13, duration: 1200 });
+  } else {
+    map.flyTo({ center: [p.lon, p.lat], zoom: 13, duration: 1200 });
+  }
+});
 
 // ------------------------------------------------------------------ loading
 let timer: number | undefined;
@@ -115,27 +143,38 @@ function scheduleLoad(delay = 400) {
   timer = window.setTimeout(load, delay);
 }
 
+function describe(data: BboxResponse) {
+  const m = data.meta;
+  const parts: string[] = [];
+  if (m.resolution_m) parts.push(`siatka ${m.resolution_m >= 1000 ? m.resolution_m / 1000 + " km" : m.resolution_m + " m"}`);
+  parts.push(`${m.cells} komórek leśnych`);
+  if (m.cells && m.weather_source) {
+    parts.push(m.weather_source === "open-meteo" && !m.weather_missing?.length ? "pogoda dokładna" : "pogoda przybliżona ~30 km");
+  }
+  return parts.join(" · ");
+}
+
 async function load() {
   if (!state.ready || !map.getSource("predictions")) return;
   controller?.abort();
   controller = new AbortController();
   const b = map.getBounds();
-  setStatus("Liczenie indeksu dla widocznego obszaru…", "busy");
+  setStatus("Liczenie indeksu…", "busy");
   try {
     const params = {
       west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth(),
       zoom: map.getZoom(), species: state.species, date: state.date,
     };
     let data = await fetchBbox(params, controller.signal);
+    state.last = data;
     setPredictions(map, data);
     if (data.meta.weather_missing?.length) {
       // server has no (or only ~30 km) weather here: fetch precise weather from this browser, retry once
-      setStatus(data.features.length
-        ? "Mapa z pogodą przybliżoną (~30 km) – doprecyzowuję pogodę…"
-        : "Pobieranie pogody przez przeglądarkę…", "busy");
+      setStatus(data.features.length ? `${describe(data)} · doprecyzowuję pogodę…` : "Pobieranie pogody…", "busy");
       try {
         if (await fillWeatherGap(data.meta, controller.signal)) {
           data = await fetchBbox(params, controller.signal);
+          state.last = data;
           setPredictions(map, data);
         }
       } catch (e) {
@@ -143,19 +182,8 @@ async function load() {
       }
     }
     const m = data.meta;
-    const parts = [];
-    if (m.resolution_m) parts.push(`siatka ${m.resolution_m >= 1000 ? m.resolution_m / 1000 + " km" : m.resolution_m + " m"}`);
-    parts.push(`${m.cells} komórek leśnych`);
-    if (m.cells && m.weather_source) {
-      parts.push(m.weather_source === "open-meteo" && !m.weather_missing?.length
-        ? "pogoda dokładna (Open-Meteo)"
-        : "pogoda przybliżona (~30 km)");
-    }
-    if (m.errors.length) {
-      setStatus(`${parts.join(" · ")} · problemy ze źródłami: ${m.errors.join("; ")}`, "err");
-    } else {
-      setStatus(m.cells ? parts.join(" · ") : "Brak lasów Lasów Państwowych w tym widoku (lub poza Polską).");
-    }
+    if (m.errors.length) setStatus(`${describe(data)} · problemy ze źródłami: ${m.errors.join("; ")}`, "err");
+    else setStatus(m.cells ? describe(data) : "Brak lasów państwowych w tym widoku");
   } catch (e) {
     if ((e as Error).name === "AbortError") return;
     setStatus(`Błąd pobierania danych: ${(e as Error).message}`, "err");
@@ -164,15 +192,37 @@ async function load() {
 
 map.on("moveend", () => scheduleLoad());
 
+// ------------------------------------------------------------------ click vs double-click
+// A double-click zooms; only a single click (no second click within the delay) opens details.
+const DBL_MS = 280;
+let clickTimer: number | undefined;
 let pointController: AbortController | null = null;
-map.on("click", async (e) => {
+
+map.on("click", (e) => {
+  if (clickTimer !== undefined) {
+    window.clearTimeout(clickTimer);
+    clickTimer = undefined;
+    return; // second click of a double-click
+  }
+  const at = e.lngLat;
+  clickTimer = window.setTimeout(() => {
+    clickTimer = undefined;
+    openPoint(at.lat, at.lng);
+  }, DBL_MS);
+});
+map.on("dblclick", () => {
+  window.clearTimeout(clickTimer);
+  clickTimer = undefined;
+});
+
+async function openPoint(lat: number, lon: number) {
   if (!state.ready) return;
   pointController?.abort();
   pointController = new AbortController();
-  const { lat, lng } = e.lngLat;
-  showLoading(lat, lng);
+  pin.setLngLat([lon, lat]).addTo(map);
+  showLoading(lat, lon);
   try {
-    const p = { lat, lon: lng, species: state.species, date: state.date };
+    const p = { lat, lon, species: state.species, date: state.date };
     let r = await fetchPoint(p, pointController.signal);
     if (r.weather_missing?.length && (await fillWeatherGap(r, pointController.signal).catch(() => false))) {
       r = await fetchPoint(p, pointController.signal);
@@ -181,6 +231,10 @@ map.on("click", async (e) => {
   } catch (err) {
     if ((err as Error).name !== "AbortError") showError(`Błąd: ${(err as Error).message}`);
   }
+}
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !(document.getElementById("panel") as HTMLElement).hidden) closePanel();
 });
 
 // ------------------------------------------------------------------ start
@@ -189,11 +243,11 @@ async function start() {
   setStatus("Łączenie z serwerem…", "busy");
   try {
     const info = await waitForServer(() =>
-      setStatus("Uruchamianie serwera danych… (darmowy serwer budzi się do ~1 min)", "busy"));
+      setStatus("Uruchamianie serwera danych… (darmowy serwer budzi się do minuty)", "busy"));
     state.speciesList = info.species;
     state.date = info.today;
     renderSpecies();
-    renderDates(info.today, info.forecast_days);
+    renderDays(info.today, info.forecast_days);
     state.ready = true;
     scheduleLoad(0);
   } catch {

@@ -2,18 +2,49 @@
 <html lang="pl">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Mapa warunków grzybowych</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍄</text></svg>" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0c1410" />
+    <title>Grzybnia · mapa warunków grzybowych</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%23c8ff3c'/><circle cx='16' cy='16' r='7' fill='%230c1410'/></svg>" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
   </head>
   <body>
     <div id="map"></div>
-    <div id="controls">
-      <div class="row" id="species-buttons"></div>
-      <div class="row" id="date-buttons"></div>
-      <div id="status"></div>
-    </div>
-    <div id="legend"></div>
+
+    <header id="brand">
+      <div class="logo"><span class="dot"></span>GRZYBNIA</div>
+      <p>indeks warunków grzybowych · Polska</p>
+    </header>
+
+    <div id="search"></div>
+
+    <nav id="dock" aria-label="Ustawienia mapy">
+      <button id="dock-toggle" aria-expanded="true">Ustawienia</button>
+      <div class="dock-body">
+        <section>
+          <h3>Gatunek</h3>
+          <div id="species" class="chips"></div>
+        </section>
+        <section>
+          <h3>Dzień</h3>
+          <div id="days" class="days"></div>
+        </section>
+        <section class="row">
+          <h3>Widok</h3>
+          <div id="view" class="seg">
+            <button data-mode="heat" class="on">Plamy</button>
+            <button data-mode="grid">Siatka</button>
+          </div>
+        </section>
+        <section>
+          <div id="legend"></div>
+        </section>
+      </div>
+    </nav>
+
+    <div id="status" role="status"></div>
     <aside id="panel" hidden></aside>
     <script type="module" src="/src/main.ts"></script>
   </body>

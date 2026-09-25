@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 from app import config
 from app.cache.ttl import TTLCache
 from app.prediction import grid
-from app.prediction.engine import Context, ForestInfo, predict
+from app.prediction.engine import Context, ForestInfo, predict, score_only, weather_part
 from app.prediction.features import WeatherSeries, compute_weather_features
 from app.sources import bdl, gbif, open_meteo, soilgrids, weather_grid
 from app.sources.http import SourceError
@@ -136,6 +136,7 @@ async def predict_bbox(west: float, south: float, east: float, north: float, zoo
     errors.update(werr)
     t2 = time.monotonic()
     wfeat_cache: dict[tuple[float, float], dict | None] = {}
+    wpart_cache: dict = {}
 
     features = []
     for cell, forest in cells:
@@ -148,20 +149,26 @@ async def predict_bbox(west: float, south: float, east: float, north: float, zoo
         best = None
         scores = {}
         for sid in species_ids:
-            ctx = Context(forest=forest, weather=dict(wf) if wf else None,
+            key = (sid, wp)
+            if key not in wpart_cache:
+                wpart_cache[key] = weather_part(SPECIES[sid], wf, target)
+            ctx = Context(forest=forest, weather=wf,
                           gbif_count=gbif.count_near(sid, lat, lon),
                           elevation=series.elevation if series else None,
                           lead_days=lead, resolution_m=res, weather_coarse=wp in coarse)
-            p = predict(SPECIES[sid], ctx, target)
-            scores[sid] = p["score"]
-            if best is None or p["score"] > best["score"]:
-                best = p
+            score, conf = score_only(SPECIES[sid], ctx, wpart_cache[key])
+            scores[sid] = score
+            if best is None or score > best["score"]:
+                best = {"score": score, "confidence": conf, "species": sid}
         props = {"score": best["score"], "confidence": best["confidence"],
                  "species": best["species"]}
         if len(species_ids) > 1:
-            props["scores"] = scores
+            # runner-up helps the UI say "also good for ..."
+            second = sorted(scores.items(), key=lambda kv: -kv[1])[1]
+            props["second"], props["second_score"] = second
         features.append({"type": "Feature", "properties": props,
-                         "geometry": {"type": "Polygon", "coordinates": [cell.polygon()]}})
+                         "geometry": {"type": "Point",
+                                      "coordinates": [round(lon, 5), round(lat, 5)]}})
 
     # points without weather, or (when zoomed in) served only by the coarse fallback grid:
     # the browser fetches them from Open-Meteo itself and uploads them (POST /weather)
@@ -175,7 +182,9 @@ async def predict_bbox(west: float, south: float, east: float, north: float, zoo
     timings = {"forest_s": round(t1 - t0, 2), "weather_s": round(t2 - t1, 2),
                "score_s": round(t3 - t2, 2)}
     log.info("bbox res=%d tiles=%d cells=%d %s", res, len(tiles), len(features), timings)
+    probe = grid.Cell(0, 0, res)
     meta.update(resolution_m=res, cells=len(features), tiles=len(tiles), timings=timings,
+                cell_deg=[round(probe.dlon, 7), round(probe.dlat, 7)],
                 weather_source=wsource,
                 weather_points=len(set(wpoints.values())), errors=sorted(errors),
                 gbif=gbif.status())

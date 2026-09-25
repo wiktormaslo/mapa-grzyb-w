@@ -15,7 +15,8 @@ export interface CellProps {
   score: number;
   confidence: number;
   species: string;
-  scores?: Record<string, number>;
+  second?: string;
+  second_score?: number;
 }
 
 export interface WeatherRequest {
@@ -32,6 +33,7 @@ export interface BboxMeta extends WeatherGap {
   species: string;
   date: string;
   resolution_m: number | null;
+  cell_deg?: [number, number];
   cells: number;
   errors: string[];
   weather_source?: "open-meteo" | "grid" | "partial";
@@ -40,7 +42,7 @@ export interface BboxMeta extends WeatherGap {
 export interface CellFeature {
   type: "Feature";
   properties: CellProps;
-  geometry: { type: "Polygon"; coordinates: number[][][] };
+  geometry: { type: "Point"; coordinates: [number, number] };
 }
 
 export interface BboxResponse {

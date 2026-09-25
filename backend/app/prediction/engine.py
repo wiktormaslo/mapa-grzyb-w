@@ -193,7 +193,30 @@ def penalties(cfg: SpeciesConfig, w: dict[str, Any] | None, m: ModelSettings = M
 
 # ---------------------------------------------------------------- main
 
-def predict(cfg: SpeciesConfig, ctx: Context, target: date, m: ModelSettings = MODEL) -> dict[str, Any]:
+@dataclass
+class WeatherPart:
+    """Everything that depends only on (species, weather point, date) - shared by many cells."""
+    wcomp: dict[str, float | None]
+    lag_mm: float | None
+    weather: float | None
+    season: float
+    pen: dict[str, float]
+    penalty_factor: float
+
+
+def weather_part(cfg: SpeciesConfig, w: dict[str, Any] | None, target: date,
+                 m: ModelSettings = MODEL) -> WeatherPart:
+    wcomp = weather_components(cfg, w)
+    lag_mm = wcomp.pop("_lag")
+    ww = cfg.weather_weights or m.weather_weights
+    weather, _ = weighted_mean((wcomp[k], ww[k]) for k in ww)
+    season = season_score(target.timetuple().tm_yday, *cfg.season)
+    pen = penalties(cfg, w, m)
+    return WeatherPart(wcomp, lag_mm, weather, season, pen,
+                       pen["drought"] * pen["heat"] * pen["frost"])
+
+
+def _habitat(cfg: SpeciesConfig, ctx: Context, m: ModelSettings):
     forest = ctx.forest
     comps: dict[str, float | None] = {
         "host": host_score(cfg, forest, m),
@@ -204,32 +227,36 @@ def predict(cfg: SpeciesConfig, ctx: Context, target: date, m: ModelSettings = M
         "prior": prior_score(ctx.gbif_count, m),
     }
     comps["soil"], soil_source = soil_score(cfg, ctx.soil, forest)
-
     hw = cfg.habitat_weights or m.habitat_weights
     filled = {k: (v if v is not None else m.unknown_component[k]) for k, v in comps.items()}
     habitat_raw = sum(hw[k] * filled[k] for k in hw) / sum(hw.values())
     limiting = min(filled["host"], filled["habitat"])
     gate = m.gate_floor + (1 - m.gate_floor) * clamp(limiting / m.gate_threshold)
-    habitat_total = habitat_raw * gate
+    return comps, soil_source, habitat_raw * gate
 
-    wcomp = weather_components(cfg, ctx.weather)
-    lag_mm = wcomp.pop("_lag")
-    ww = cfg.weather_weights or m.weather_weights
-    weather, weather_cov = weighted_mean((wcomp[k], ww[k]) for k in ww)
-    weather_val = weather if weather is not None else m.weather_unknown
 
-    doy = target.timetuple().tm_yday
-    season = season_score(doy, *cfg.season)
-
-    pen = penalties(cfg, ctx.weather, m)
-    penalty_factor = pen["drought"] * pen["heat"] * pen["frost"]
-
-    prior = comps["prior"]
+def _combine(habitat_total: float, prior: float | None, wp: WeatherPart, m: ModelSettings) -> int:
+    weather_val = wp.weather if wp.weather is not None else m.weather_unknown
     hist_adj = 1.0 if prior is None else 1.0 + m.historical_adjustment_max * (prior - 0.5) * 2
+    base = habitat_total * (m.weather_floor + (1 - m.weather_floor) * weather_val) * wp.season
+    return int(round(clamp(base * wp.penalty_factor * hist_adj * 100, 0, 100)))
 
-    base = habitat_total * (m.weather_floor + (1 - m.weather_floor) * weather_val) * season
-    adjusted = base * penalty_factor * hist_adj
-    score = int(round(clamp(adjusted * 100, 0, 100)))
+
+def score_only(cfg: SpeciesConfig, ctx: Context, wp: WeatherPart, m: ModelSettings = MODEL) -> tuple[int, int]:
+    """Fast path for map cells: (score, confidence) without explanations."""
+    comps, soil_source, habitat_total = _habitat(cfg, ctx, m)
+    confidence, _ = _confidence(ctx, comps, wp.wcomp, soil_source, m)
+    return _combine(habitat_total, comps["prior"], wp, m), confidence
+
+
+def predict(cfg: SpeciesConfig, ctx: Context, target: date, m: ModelSettings = MODEL,
+            wp: WeatherPart | None = None) -> dict[str, Any]:
+    if wp is None:
+        wp = weather_part(cfg, ctx.weather, target, m)
+    comps, soil_source, habitat_total = _habitat(cfg, ctx, m)
+    wcomp, lag_mm, weather, season, pen, penalty_factor = (
+        wp.wcomp, wp.lag_mm, wp.weather, wp.season, wp.pen, wp.penalty_factor)
+    score = _combine(habitat_total, comps["prior"], wp, m)
 
     confidence, missing = _confidence(ctx, comps, wcomp, soil_source, m)
     positive, negative = _reasons(comps, wcomp, season, pen, ctx, m)

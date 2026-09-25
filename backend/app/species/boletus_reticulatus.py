@@ -1,0 +1,36 @@
+"""Borowik usiatkowany (borowik letni). Oak and beech, fertile warm sites, early summer season."""
+from app.species.base import SpeciesConfig
+
+CONFIG = SpeciesConfig(
+    id="boletus_reticulatus",
+    name_pl="Borowik usiatkowany",
+    name_short="Borowik letni",
+    latin="Boletus reticulatus",
+    gbif_names=["Boletus reticulatus", "Boletus aestivalis"],
+    host_trees={
+        "Quercus": 1.0, "Fagus": 0.9, "Castanea": 0.9, "Carpinus": 0.6, "Tilia": 0.4,
+        "Betula": 0.3,
+    },
+    unknown_companion_host=0.3,
+    site_fertility={"B": 0.3, "BM": 0.7, "LM": 1.0, "L": 1.0, "OL": 0.05, "LL": 0.3},
+    site_moisture={"S": 0.6, "SW": 1.0, "W": 0.7, "B": 0.1},
+    mountain_factor=0.8,
+    ph_pref=(3.8, 4.8, 7.0, 8.2),
+    sand_pref=(5, 20, 85, 100),
+    stand_age_pref=(25, 60, 220, 320),
+    elevation_pref=(-50, 0, 700, 1100),
+    season=(138, 168, 245, 285),
+    rain_lag=(9, 4, 9),
+    rain_response=[(0, 0), (0.5, 0.05), (1.5, 0.5), (2.5, 0.9), (3.5, 1.0), (12, 1.0), (20, 0.8)],
+    temperature_pref=[(8, 0), (12, 0.5), (15, 1), (22, 1), (27, 0.4), (31, 0)],
+    soil_temperature_pref=[(8, 0), (11, 0.5), (14, 1), (20, 1), (24, 0.4), (28, 0)],
+    soil_moisture_pref=[(0.05, 0), (0.10, 0.3), (0.18, 1), (0.38, 1), (0.48, 0.6)],
+    humidity_pref=[(45, 0), (58, 0.4), (75, 1), (100, 1)],
+    vpd_pref=[(0, 1), (1.0, 1), (1.7, 0.5), (2.7, 0.1), (4, 0)],
+    water_balance_pref=[(-60, 0), (-30, 0.3), (0, 0.8), (15, 1)],
+    drought_max_penalty=0.5,
+    heat_max_penalty=0.4,
+    frost_max_penalty=0.8,
+    heat_tmax=(29, 35),
+    frost_tmin=-1.0,
+)

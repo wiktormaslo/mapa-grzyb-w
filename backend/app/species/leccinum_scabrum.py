@@ -1,0 +1,33 @@
+"""Koźlarz babka. Strictly birch; tolerant of site type, likes moist places."""
+from app.species.base import SpeciesConfig
+
+CONFIG = SpeciesConfig(
+    id="leccinum_scabrum",
+    name_pl="Koźlarz babka",
+    name_short="Babka",
+    latin="Leccinum scabrum",
+    gbif_names=["Leccinum scabrum"],
+    host_trees={"Betula": 1.0},
+    unknown_companion_host=0.3,
+    site_fertility={"B": 0.7, "BM": 0.9, "LM": 0.9, "L": 0.75, "OL": 0.45, "LL": 0.3},
+    site_moisture={"S": 0.5, "SW": 1.0, "W": 1.0, "B": 0.6},
+    mountain_factor=0.9,
+    ph_pref=(3.2, 4.0, 6.0, 7.5),
+    sand_pref=(10, 35, 95, 100),
+    stand_age_pref=(3, 8, 80, 130),
+    elevation_pref=(-50, 0, 900, 1400),
+    season=(158, 198, 285, 316),
+    rain_lag=(7, 3, 8),
+    rain_response=[(0, 0), (0.5, 0.05), (1.4, 0.5), (2.4, 0.9), (3.4, 1.0), (12, 1.0), (20, 0.8)],
+    temperature_pref=[(4, 0), (8, 0.5), (11, 1), (19, 1), (24, 0.4), (29, 0)],
+    soil_temperature_pref=[(4, 0), (8, 0.5), (10, 1), (17, 1), (21, 0.4), (26, 0)],
+    soil_moisture_pref=[(0.05, 0), (0.11, 0.3), (0.19, 1), (0.42, 1), (0.52, 0.6)],
+    humidity_pref=[(45, 0), (60, 0.4), (78, 1), (100, 1)],
+    vpd_pref=[(0, 1), (0.8, 1), (1.5, 0.5), (2.5, 0.1), (4, 0)],
+    water_balance_pref=[(-60, 0), (-30, 0.3), (0, 0.8), (15, 1)],
+    drought_max_penalty=0.55,
+    heat_max_penalty=0.45,
+    frost_max_penalty=0.8,
+    heat_tmax=(27, 33),
+    frost_tmin=-2.0,
+)

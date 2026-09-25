@@ -1,0 +1,38 @@
+"""Czubajka kania. Saprotroph (not mycorrhizal): tree species matter little, prefers light,
+less acidic forests, edges and clearings; stand composition is only a weak signal."""
+from app.species.base import SpeciesConfig
+
+CONFIG = SpeciesConfig(
+    id="macrolepiota_procera",
+    name_pl="Czubajka kania",
+    name_short="Kania",
+    latin="Macrolepiota procera",
+    gbif_names=["Macrolepiota procera"],
+    host_trees={
+        "Pinus": 0.9, "Quercus": 0.9, "Betula": 0.85, "Fagus": 0.75, "Carpinus": 0.75,
+        "Larix": 0.8, "Picea": 0.65, "Robinia": 0.8, "Populus": 0.7, "Abies": 0.6,
+        "Tilia": 0.7, "Acer": 0.7, "Fraxinus": 0.6, "Alnus": 0.35,
+    },
+    unknown_companion_host=0.7,
+    site_fertility={"B": 0.75, "BM": 1.0, "LM": 1.0, "L": 0.85, "OL": 0.1, "LL": 0.3},
+    site_moisture={"S": 0.8, "SW": 1.0, "W": 0.6, "B": 0.1},
+    mountain_factor=0.9,
+    ph_pref=(4.0, 5.2, 7.5, 8.5),
+    sand_pref=(15, 40, 90, 100),
+    stand_age_pref=(3, 10, 200, 300),
+    elevation_pref=(-50, 0, 900, 1400),
+    season=(182, 222, 280, 312),
+    rain_lag=(7, 3, 8),
+    rain_response=[(0, 0), (0.5, 0.05), (1.4, 0.5), (2.4, 0.9), (3.4, 1.0), (12, 1.0), (20, 0.8)],
+    temperature_pref=[(5, 0), (9, 0.5), (12, 1), (20, 1), (25, 0.4), (30, 0)],
+    soil_temperature_pref=[(5, 0), (9, 0.5), (12, 1), (18, 1), (22, 0.4), (27, 0)],
+    soil_moisture_pref=[(0.04, 0), (0.09, 0.3), (0.16, 1), (0.36, 1), (0.46, 0.6)],
+    humidity_pref=[(45, 0), (58, 0.4), (75, 1), (100, 1)],
+    vpd_pref=[(0, 1), (0.9, 1), (1.6, 0.5), (2.6, 0.1), (4, 0)],
+    water_balance_pref=[(-60, 0), (-30, 0.3), (0, 0.8), (15, 1)],
+    drought_max_penalty=0.5,
+    heat_max_penalty=0.45,
+    frost_max_penalty=0.8,
+    heat_tmax=(27, 33),
+    frost_tmin=-2.0,
+)

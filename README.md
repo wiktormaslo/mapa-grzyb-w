@@ -1,8 +1,15 @@
 # Mapa warunków grzybowych 🍄
 
-Mapa Polski z **indeksem sprzyjających warunków (0–100)** dla czterech jadalnych grzybów:
-borowik szlachetny, podgrzybek brunatny, maślak zwyczajny i mleczaj rydz. Tryb „Wszystkie”
+Mapa Polski z **indeksem sprzyjających warunków (0–100)** dla 10 popularnych jadalnych grzybów
+leśnych: borowik szlachetny, podgrzybek brunatny, kurka, maślak zwyczajny, rydz, kania,
+koźlarz babka, koźlarz czerwony, opieńka miodowa i borowik usiatkowany. Tryb „Wszystkie”
 pokazuje najwyższy wynik spośród nich. To heurystyczny indeks, a nie prawdopodobieństwo.
+Gąski zielonki świadomie nie ma: od 2011 roku nie jest dopuszczona do obrotu po przypadkach zatruć.
+
+Interfejs: ciemna mapa podkładowa w stylu GTA V (OpenFreeMap), wynik jako półprzezroczyste
+„plamy” (heatmapa skalibrowana tak, by ciągły las o wyniku S miał kolor S z legendy) albo siatka,
+wyszukiwarka miejsc (Photon/OSM), pinezka i szczegóły po pojedynczym kliknięciu
+(podwójne kliknięcie tylko przybliża).
 
 ## Jak działa model
 

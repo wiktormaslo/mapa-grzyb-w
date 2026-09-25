@@ -140,8 +140,8 @@ async def probe_app(url: str):
                                          f"&east={east}&north={north}&zoom={zoom}&species=all")
             if body and "features" in body:
                 if body["features"] and cell is None:
-                    ring = body["features"][0]["geometry"]["coordinates"][0]
-                    cell = (sum(p[1] for p in ring[:4]) / 4, sum(p[0] for p in ring[:4]) / 4)
+                    lon_c, lat_c = body["features"][0]["geometry"]["coordinates"]
+                    cell = (lat_c, lon_c)
                 body = {"meta": body["meta"], "n": len(body["features"]),
                         "first": [f["properties"] for f in body["features"][:3]]}
             show("APP bbox", {"status": status, "body": body})

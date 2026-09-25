@@ -34,12 +34,6 @@ class Cell:
         """(lat, lon)"""
         return ((self.j + 0.5) * self.dlat, (self.i + 0.5) * self.dlon)
 
-    def polygon(self) -> list[list[float]]:
-        w, s = self.i * self.dlon, self.j * self.dlat
-        e, n = w + self.dlon, s + self.dlat
-        return [[round(w, 6), round(s, 6)], [round(e, 6), round(s, 6)], [round(e, 6), round(n, 6)],
-                [round(w, 6), round(n, 6)], [round(w, 6), round(s, 6)]]
-
 
 def min_res_for_zoom(zoom: float) -> int:
     if zoom >= 13:

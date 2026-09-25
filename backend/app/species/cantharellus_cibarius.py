@@ -1,0 +1,36 @@
+"""Pieprznik jadalny (kurka). Mycorrhizal with many trees, acidic poor-to-medium sites, long season."""
+from app.species.base import SpeciesConfig
+
+CONFIG = SpeciesConfig(
+    id="cantharellus_cibarius",
+    name_pl="Pieprznik jadalny (kurka)",
+    name_short="Kurka",
+    latin="Cantharellus cibarius",
+    gbif_names=["Cantharellus cibarius"],
+    host_trees={
+        "Pinus": 1.0, "Picea": 0.9, "Fagus": 0.9, "Quercus": 0.9, "Betula": 0.7,
+        "Abies": 0.6, "Carpinus": 0.6, "Larix": 0.3, "Pseudotsuga": 0.3,
+    },
+    unknown_companion_host=0.35,
+    site_fertility={"B": 0.9, "BM": 1.0, "LM": 0.9, "L": 0.6, "OL": 0.1, "LL": 0.1},
+    site_moisture={"S": 0.5, "SW": 1.0, "W": 0.9, "B": 0.3},
+    mountain_factor=1.0,
+    ph_pref=(2.8, 3.6, 5.5, 7.0),
+    sand_pref=(20, 50, 95, 100),
+    stand_age_pref=(12, 30, 150, 250),
+    elevation_pref=(-50, 0, 1100, 1600),
+    season=(158, 192, 272, 308),
+    rain_lag=(8, 4, 9),
+    rain_response=[(0, 0), (0.5, 0.05), (1.5, 0.5), (2.5, 0.9), (3.5, 1.0), (12, 1.0), (20, 0.8)],
+    temperature_pref=[(5, 0), (9, 0.5), (13, 1), (20, 1), (25, 0.4), (30, 0)],
+    soil_temperature_pref=[(5, 0), (9, 0.5), (12, 1), (18, 1), (22, 0.4), (27, 0)],
+    soil_moisture_pref=[(0.04, 0), (0.10, 0.3), (0.18, 1), (0.40, 1), (0.50, 0.6)],
+    humidity_pref=[(45, 0), (60, 0.4), (78, 1), (100, 1)],
+    vpd_pref=[(0, 1), (0.8, 1), (1.5, 0.5), (2.5, 0.1), (4, 0)],
+    water_balance_pref=[(-60, 0), (-30, 0.3), (0, 0.8), (15, 1)],
+    drought_max_penalty=0.5,
+    heat_max_penalty=0.45,
+    frost_max_penalty=0.8,
+    heat_tmax=(27, 33),
+    frost_tmin=-2.0,
+)

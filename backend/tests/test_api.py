@@ -9,8 +9,10 @@ def test_health_and_species(mock_sources):
     c = TestClient(app)
     assert c.get("/api/v1/health").json()["status"] == "ok"
     sp = c.get("/api/v1/species").json()["species"]
-    assert {s["id"] for s in sp} == {"boletus_edulis", "imleria_badia", "suillus_luteus",
-                                     "lactarius_deliciosus"}
+    ids = {s["id"] for s in sp}
+    assert len(ids) == 10
+    assert {"boletus_edulis", "imleria_badia", "suillus_luteus", "lactarius_deliciosus",
+            "cantharellus_cibarius", "macrolepiota_procera"} <= ids
 
 
 def test_bbox_end_to_end(mock_sources):
@@ -24,7 +26,7 @@ def test_bbox_end_to_end(mock_sources):
     assert len(feats) > 20
     # pine cells (west half) score high, alder cells (east half) score low
     def lon(f):
-        return f["geometry"]["coordinates"][0][0][0]
+        return f["geometry"]["coordinates"][0]
     pine = [f["properties"]["score"] for f in feats if lon(f) < 21.39]
     alder = [f["properties"]["score"] for f in feats if lon(f) > 21.41]
     assert min(pine) > 60 and max(alder) < 25
@@ -37,8 +39,8 @@ def test_bbox_all_species_returns_best(mock_sources):
     c = TestClient(app)
     fc = c.get("/api/v1/predictions/bbox", params={**BBOX, "species": "all"}).json()
     p = fc["features"][0]["properties"]
-    assert p["score"] == max(p["scores"].values())
-    assert p["species"] in p["scores"]
+    assert p["score"] >= p["second_score"]
+    assert p["species"] != p["second"]
 
 
 def test_bbox_bdl_down_returns_no_fake_data(mock_sources):
@@ -79,7 +81,7 @@ def test_point_details(mock_sources):
     r = TestClient(app).get("/api/v1/prediction", params={"lat": 52.05, "lon": 21.35})
     body = r.json()
     assert body["in_forest"] and body["forest"]["trees"][0]["name_pl"] == "sosna"
-    assert len(body["results"]) == 4
+    assert len(body["results"]) == 10
     top = body["results"][0]
     assert {"score", "confidence", "components", "positive_factors", "negative_factors"} <= set(top)
     assert top["features"]["soil_source"] == "soilgrids"

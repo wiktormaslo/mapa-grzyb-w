@@ -1,0 +1,33 @@
+"""Koźlarz czerwony. Mainly aspen/poplar, also birch; fresh-to-moist medium sites."""
+from app.species.base import SpeciesConfig
+
+CONFIG = SpeciesConfig(
+    id="leccinum_aurantiacum",
+    name_pl="Koźlarz czerwony",
+    name_short="Koźlarz czerwony",
+    latin="Leccinum aurantiacum",
+    gbif_names=["Leccinum aurantiacum", "Leccinum albostipitatum", "Leccinum versipelle"],
+    host_trees={"Populus": 1.0, "Betula": 0.6, "Quercus": 0.3, "Pinus": 0.15},
+    unknown_companion_host=0.3,
+    site_fertility={"B": 0.5, "BM": 0.9, "LM": 1.0, "L": 0.8, "OL": 0.3, "LL": 0.4},
+    site_moisture={"S": 0.5, "SW": 1.0, "W": 0.9, "B": 0.4},
+    mountain_factor=0.9,
+    ph_pref=(3.5, 4.5, 6.5, 7.8),
+    sand_pref=(10, 30, 90, 100),
+    stand_age_pref=(3, 8, 70, 120),
+    elevation_pref=(-50, 0, 900, 1400),
+    season=(170, 208, 280, 312),
+    rain_lag=(8, 4, 9),
+    rain_response=[(0, 0), (0.5, 0.05), (1.5, 0.5), (2.5, 0.9), (3.5, 1.0), (12, 1.0), (20, 0.8)],
+    temperature_pref=[(4, 0), (8, 0.5), (11, 1), (19, 1), (24, 0.4), (29, 0)],
+    soil_temperature_pref=[(4, 0), (8, 0.5), (10, 1), (17, 1), (21, 0.4), (26, 0)],
+    soil_moisture_pref=[(0.05, 0), (0.11, 0.3), (0.18, 1), (0.40, 1), (0.50, 0.6)],
+    humidity_pref=[(45, 0), (60, 0.4), (78, 1), (100, 1)],
+    vpd_pref=[(0, 1), (0.8, 1), (1.5, 0.5), (2.5, 0.1), (4, 0)],
+    water_balance_pref=[(-60, 0), (-30, 0.3), (0, 0.8), (15, 1)],
+    drought_max_penalty=0.5,
+    heat_max_penalty=0.45,
+    frost_max_penalty=0.8,
+    heat_tmax=(27, 33),
+    frost_tmin=-2.0,
+)
