@@ -153,11 +153,36 @@ async def probe_app(url: str):
             show("APP point (forest cell)", {"status": status, "body": body})
 
 
+async def probe_frontend_services():
+    """Third-party services used directly by the browser."""
+    urls = {
+        "OpenFreeMap TileJSON": "https://tiles.openfreemap.org/planet",
+        "OpenFreeMap glyphs": "https://tiles.openfreemap.org/fonts/Noto%20Sans%20Regular/0-255.pbf",
+        "OpenFreeMap glyphs bold": "https://tiles.openfreemap.org/fonts/Noto%20Sans%20Bold/0-255.pbf",
+        "Photon search": "https://photon.komoot.io/api/?q=Puszcza%20Kampinoska&limit=2&lang=default&bbox=14.0,49.0,24.2,54.9",
+    }
+    async with httpx.AsyncClient(timeout=30, follow_redirects=True) as c:
+        for name, url in urls.items():
+            try:
+                r = await c.get(url)
+                extra = ""
+                if "TileJSON" in name:
+                    j = r.json()
+                    extra = f" layers={[v.get('id') for v in j.get('vector_layers', [])]}"
+                elif "Photon" in name:
+                    extra = " " + json.dumps([f["properties"].get("name") for f in r.json().get("features", [])],
+                                             ensure_ascii=False)
+                print(f"{name}: {r.status_code} ({len(r.content)} B){extra}")
+            except Exception as e:  # noqa: BLE001
+                print(f"{name}: ERROR {e!r}")
+
+
 async def main():
     logging.basicConfig(level=logging.INFO, format="%(name)s: %(message)s")
     logging.getLogger("httpx").setLevel(logging.WARNING)
     if len(sys.argv) > 1 and sys.argv[1]:
         await probe_app(sys.argv[1])  # first, while the server is fresh
+    await probe_frontend_services()
     await probe_bdl()
     await probe_meteo()
     await probe_gbif()
