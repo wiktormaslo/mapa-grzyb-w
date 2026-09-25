@@ -92,3 +92,31 @@ def test_invalid_input(mock_sources):
     c = TestClient(app)
     assert c.get("/api/v1/predictions/bbox", params={**BBOX, "species": "xyz"}).status_code == 422
     assert c.get("/api/v1/predictions/bbox", params={**BBOX, "date": "2001-01-01"}).status_code == 422
+
+
+def test_browser_weather_fallback_flow(mock_sources):
+    """Server gets 429 and no grid -> tells the browser which points to fetch -> browser uploads."""
+    from tests.mock_sources import open_meteo_location
+    mock_sources.fail.update({"open-meteo", "grid"})
+    c = TestClient(app)
+    params = {**BBOX, "species": "boletus_edulis"}
+    first = c.get("/api/v1/predictions/bbox", params=params).json()
+    missing = first["meta"]["weather_missing"]
+    assert missing and "daily" in first["meta"]["weather_request"]["params"]
+    data = [open_meteo_location(lat, lon) for lat, lon in missing]
+    r = c.post("/api/v1/weather", json={"points": missing, "data": data})
+    assert r.json()["stored"] == len(missing)
+    second = c.get("/api/v1/predictions/bbox", params=params).json()
+    assert "weather_missing" not in second["meta"]
+    assert second["features"][0]["properties"]["confidence"] > first["features"][0]["properties"]["confidence"]
+
+
+def test_weather_upload_rejects_garbage(mock_sources):
+    from tests.mock_sources import open_meteo_location
+    c = TestClient(app)
+    bad = open_meteo_location(52.0, 21.3)
+    bad["daily"]["precipitation_sum"][0] = 5000  # implausible
+    assert c.post("/api/v1/weather", json={"points": [[52.0, 21.3]], "data": [bad]}).json()["stored"] == 0
+    far = open_meteo_location(50.0, 19.0)
+    assert c.post("/api/v1/weather", json={"points": [[52.0, 21.3]], "data": [far]}).json()["stored"] == 0
+    assert c.post("/api/v1/weather", json={"points": [[52.0, 21.3]], "data": []}).status_code == 422

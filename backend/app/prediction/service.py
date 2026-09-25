@@ -161,6 +161,10 @@ async def predict_bbox(west: float, south: float, east: float, north: float, zoo
         features.append({"type": "Feature", "properties": props,
                          "geometry": {"type": "Polygon", "coordinates": [cell.polygon()]}})
 
+    weather_missing = sorted({wp for wp in wpoints.values() if wp not in weather})
+    if weather_missing:
+        meta["weather_missing"] = [list(p) for p in weather_missing[:open_meteo.MAX_INGEST_POINTS]]
+        meta["weather_request"] = {"url": config.OPEN_METEO_URL, "params": open_meteo.base_params()}
     t3 = time.monotonic()
     timings = {"forest_s": round(t1 - t0, 2), "weather_s": round(t2 - t1, 2),
                "score_s": round(t3 - t2, 2)}
@@ -217,6 +221,9 @@ async def predict_point(lat: float, lon: float, species: str, date_str: str | No
     errors.extend(werr)
     series = weather.get(wp)
     wf = _features_for(series, target)
+    if series is None:
+        base["weather_missing"] = [list(wp)]
+        base["weather_request"] = {"url": config.OPEN_METEO_URL, "params": open_meteo.base_params()}
     if series is not None:
         sources.append("Open-Meteo" if wsource == "open-meteo"
                        else "Open-Meteo (siatka krajowa ~30 km, odświeżana co 6 h)")

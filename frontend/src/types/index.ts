@@ -18,7 +18,17 @@ export interface CellProps {
   scores?: Record<string, number>;
 }
 
-export interface BboxMeta {
+export interface WeatherRequest {
+  url: string;
+  params: Record<string, string | number>;
+}
+
+export interface WeatherGap {
+  weather_missing?: [number, number][];
+  weather_request?: WeatherRequest;
+}
+
+export interface BboxMeta extends WeatherGap {
   species: string;
   date: string;
   resolution_m: number | null;
@@ -52,7 +62,7 @@ export interface PointPrediction {
   features: Record<string, number | string | null>;
 }
 
-export interface PointResponse {
+export interface PointResponse extends WeatherGap {
   lat: number;
   lon: number;
   date: string;

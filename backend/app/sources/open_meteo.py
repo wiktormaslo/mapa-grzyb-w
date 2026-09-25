@@ -77,21 +77,29 @@ def parse_location(obj: dict[str, Any]) -> WeatherSeries:
                          lat=obj.get("latitude"), lon=obj.get("longitude"))
 
 
+def base_params() -> dict[str, str | int]:
+    """Query parameters without coordinates (also handed to the browser fallback)."""
+    daily, hourly = VARIANTS[_variant_idx]
+    params: dict[str, str | int] = {
+        "daily": ",".join(daily),
+        "past_days": config.PAST_DAYS,
+        "forecast_days": config.FORECAST_DAYS,
+        "timezone": config.TIMEZONE,
+    }
+    if hourly:
+        params["hourly"] = ",".join(hourly)
+    return params
+
+
 async def _request(points: list[tuple[float, float]]) -> list[WeatherSeries]:
     global _variant_idx, _blocked_until
     client = get_client()
     while True:
-        daily, hourly = VARIANTS[_variant_idx]
         params = {
             "latitude": ",".join(f"{p[0]:.4f}" for p in points),
             "longitude": ",".join(f"{p[1]:.4f}" for p in points),
-            "daily": ",".join(daily),
-            "past_days": config.PAST_DAYS,
-            "forecast_days": config.FORECAST_DAYS,
-            "timezone": config.TIMEZONE,
+            **base_params(),
         }
-        if hourly:
-            params["hourly"] = ",".join(hourly)
         try:
             r = await client.get(config.OPEN_METEO_URL, params=params)
         except httpx.HTTPError as e:
@@ -140,3 +148,35 @@ async def fetch_weather(points: list[tuple[float, float]]) -> tuple[dict[tuple[f
 
     await asyncio.gather(*(run(missing[i:i + CHUNK]) for i in range(0, len(missing), CHUNK)))
     return result, sorted(set(errors))
+
+
+MAX_INGEST_POINTS = 100
+_RANGES = {"precip": (0, 300), "tmean": (-50, 50), "tmax": (-50, 55), "tmin": (-60, 50),
+           "rh": (0, 100), "et0": (0, 20), "vpd": (0, 10), "soil_moisture": (0, 1),
+           "soil_temp": (-40, 60)}
+
+
+def ingest(points: list[tuple[float, float]], data: object) -> int:
+    """Store Open-Meteo responses fetched by the browser (used when the server gets 429).
+
+    Only plausible data is accepted: matching location, full date range, values in range."""
+    items = data if isinstance(data, list) else [data]
+    if not points or len(points) > MAX_INGEST_POINTS or len(items) != len(points):
+        raise ValueError("points and data must have the same, limited length")
+    stored = 0
+    for (lat, lon), obj in zip(points, items):
+        if not isinstance(obj, dict):
+            continue
+        s = parse_location(obj)
+        if s.lat is None or s.lon is None or abs(s.lat - lat) > 0.1 or abs(s.lon - lon) > 0.1:
+            continue
+        if len(s.dates) < config.PAST_DAYS or "precip" not in s.daily:
+            continue
+        ok = all(len(vals) == len(s.dates) and all(
+            v is None or (isinstance(v, (int, float)) and _RANGES.get(k, (-1e9, 1e9))[0] <= v <= _RANGES.get(k, (-1e9, 1e9))[1])
+            for v in vals) for k, vals in s.daily.items())
+        if not ok:
+            continue
+        _cache.set(_key(lat, lon), s)
+        stored += 1
+    return stored

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
 
 from app import config
 from app.prediction import service
 from app.prediction.service import InputError
-from app.sources import gbif
+from app.sources import gbif, open_meteo
 from app.species import SPECIES
 
 router = APIRouter(prefix="/api/v1")
@@ -47,6 +50,21 @@ async def prediction(
         return await service.predict_point(lat, lon, species, date)
     except InputError as e:
         raise HTTPException(422, str(e)) from e
+
+
+class WeatherUpload(BaseModel):
+    points: list[tuple[float, float]]
+    data: Any
+
+
+@router.post("/weather")
+async def upload_weather(body: WeatherUpload):
+    """Browser fallback: Open-Meteo data fetched by the client when the server is rate limited."""
+    try:
+        stored = open_meteo.ingest(body.points, body.data)
+    except ValueError as e:
+        raise HTTPException(422, str(e)) from e
+    return {"stored": stored}
 
 
 if config.DEBUG:

@@ -1,7 +1,7 @@
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./style.css";
-import { fetchBbox, fetchPoint, waitForServer } from "./api/client";
+import { fetchBbox, fetchPoint, fillWeatherGap, waitForServer } from "./api/client";
 import { addPredictionLayer, setPredictions } from "./map/layer";
 import { CLASSES } from "./map/scale";
 import { showError, showLoading, showPoint } from "./components/panel";
@@ -122,11 +122,24 @@ async function load() {
   const b = map.getBounds();
   setStatus("Liczenie indeksu dla widocznego obszaru…", "busy");
   try {
-    const data = await fetchBbox({
+    const params = {
       west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth(),
       zoom: map.getZoom(), species: state.species, date: state.date,
-    }, controller.signal);
+    };
+    let data = await fetchBbox(params, controller.signal);
     setPredictions(map, data);
+    if (data.meta.weather_missing?.length) {
+      // server was rate limited by Open-Meteo: fetch weather from this browser and retry once
+      setStatus("Serwer nie dostał pogody – pobieram ją przez przeglądarkę…", "busy");
+      try {
+        if (await fillWeatherGap(data.meta, controller.signal)) {
+          data = await fetchBbox(params, controller.signal);
+          setPredictions(map, data);
+        }
+      } catch (e) {
+        if ((e as Error).name === "AbortError") throw e;
+      }
+    }
     const m = data.meta;
     const parts = [];
     if (m.resolution_m) parts.push(`siatka ${m.resolution_m >= 1000 ? m.resolution_m / 1000 + " km" : m.resolution_m + " m"}`);
@@ -152,7 +165,11 @@ map.on("click", async (e) => {
   const { lat, lng } = e.lngLat;
   showLoading(lat, lng);
   try {
-    const r = await fetchPoint({ lat, lon: lng, species: state.species, date: state.date }, pointController.signal);
+    const p = { lat, lon: lng, species: state.species, date: state.date };
+    let r = await fetchPoint(p, pointController.signal);
+    if (r.weather_missing?.length && (await fillWeatherGap(r, pointController.signal).catch(() => false))) {
+      r = await fetchPoint(p, pointController.signal);
+    }
     showPoint(r);
   } catch (err) {
     if ((err as Error).name !== "AbortError") showError(`Błąd: ${(err as Error).message}`);

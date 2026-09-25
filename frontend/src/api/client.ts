@@ -1,4 +1,4 @@
-import type { BboxResponse, PointResponse, SpeciesResponse } from "../types";
+import type { BboxResponse, PointResponse, SpeciesResponse, WeatherGap } from "../types";
 
 const BASE = "/api/v1";
 
@@ -68,4 +68,35 @@ export function fetchPoint(
     date: p.date,
   });
   return getJson<PointResponse>(`${BASE}/prediction?${q}`, signal);
+}
+
+/**
+ * Fallback when the server is rate limited by Open-Meteo (shared Render IP):
+ * the browser fetches the missing weather points itself (own IP, CORS allowed)
+ * and uploads them; the server caches them for everyone. Returns true if anything was stored.
+ */
+export async function fillWeatherGap(gap: WeatherGap, signal?: AbortSignal): Promise<boolean> {
+  const pts = gap.weather_missing;
+  const req = gap.weather_request;
+  if (!pts?.length || !req) return false;
+  let stored = 0;
+  for (let i = 0; i < pts.length; i += 50) {
+    const chunk = pts.slice(i, i + 50);
+    const q = new URLSearchParams({
+      latitude: chunk.map((p) => p[0].toFixed(4)).join(","),
+      longitude: chunk.map((p) => p[1].toFixed(4)).join(","),
+    });
+    for (const [k, v] of Object.entries(req.params)) q.set(k, String(v));
+    const r = await fetch(`${req.url}?${q}`, { signal });
+    if (!r.ok) continue;
+    const data = await r.json();
+    const up = await fetch(`${BASE}/weather`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ points: chunk, data }),
+      signal,
+    });
+    if (up.ok) stored += (await up.json()).stored ?? 0;
+  }
+  return stored > 0;
 }
