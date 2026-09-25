@@ -2,7 +2,7 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./style.css";
 import { fetchBbox, fetchPoint, fillWeatherGap, waitForServer } from "./api/client";
-import { gtaStyle, rasterFallbackStyle } from "./map/basemap";
+import { C as BASE, gtaStyle, rasterFallbackStyle } from "./map/basemap";
 import { addPredictionLayers, setMode, setPredictions, type ViewMode } from "./map/layer";
 import { CLASSES, cssGradient } from "./map/scale";
 import { closePanel, onPanelClose, showError, showLoading, showPoint } from "./components/panel";
@@ -57,7 +57,7 @@ map.on("error", (e) => {
   }
 });
 map.on("style.load", () => {
-  addPredictionLayers(map, state.mode);
+  addPredictionLayers(map, state.mode, usedFallback ? BASE.land : BASE.forest);
   if (state.last) setPredictions(map, state.last);
   if (state.ready) scheduleLoad(0);
 });
@@ -74,7 +74,8 @@ function renderLegend() {
   document.getElementById("legend")!.innerHTML = `
     <div class="legend-bar" style="background:${cssGradient()}"></div>
     <div class="legend-ticks">${[0, 20, 40, 60, 80, 100].map((t) => `<span>${t}</span>`).join("")}</div>
-    <div class="legend-labels">${CLASSES.map((c) => `<span>${c.label}</span>`).join("")}</div>`;
+    <div class="legend-labels">${CLASSES.map((c) => `<span>${c.label}</span>`).join("")}</div>
+    <div class="legend-nodata"><i></i>las bez danych o drzewostanie (np. prywatny)</div>`;
 }
 
 function renderSpecies() {

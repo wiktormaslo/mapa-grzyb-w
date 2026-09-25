@@ -75,6 +75,12 @@ class ModelSettings:
     })
     weather_unknown: float = 0.5
     weather_floor: float = 0.30  # Base = H * (floor + (1-floor) * W) * S
+    # water is a hard requirement for fruiting: W *= floor + (1-floor) * mean(rain_lag, soil_moisture),
+    # so good temperature/humidity cannot compensate for missing rain
+    water_trigger_floor: float = 0.4
+    # final calibration score = 100 * adjusted^gamma: average-good conditions land ~40-65,
+    # 85+ only when habitat, rain, moisture, temperature and season are all near optimum
+    score_gamma: float = 2.2
 
     # limiting-factor gate: bad host or bad site caps habitat regardless of weather
     gate_floor: float = 0.25
@@ -84,9 +90,11 @@ class ModelSettings:
     default_dominant_share: float = 0.7
     host_saturation: float = 0.6  # weighted host share giving full host score
 
-    # GBIF prior: 0.5 (no info / no records) .. 1.0 (many records nearby)
+    # GBIF prior: 0.5 (no info / no records) .. prior_max (many records nearby); kept small because
+    # presence-only data mostly reflects where people walk and report, and the final gamma amplifies it
     prior_scale_records: float = 3.0
-    historical_adjustment_max: float = 0.05
+    prior_max: float = 0.7
+    historical_adjustment_max: float = 0.02
 
     # drought: evaluated on window ending `min_effect_lag` days before target
     min_effect_lag: int = 3

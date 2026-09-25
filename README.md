@@ -18,7 +18,9 @@ Habitat  = (0.35 host + 0.20 siedlisko + 0.15 gleba + 0.15 wiek drzewostanu
             + 0.05 teren + 0.10 GBIF) × bramka(host, siedlisko)
 Weather  = 0.30 opad z opóźnieniem + 0.25 wilgotność gleby + 0.20 temperatura
          + 0.10 temp. gleby + 0.10 wilgotność/VPD + 0.05 bilans wodny
-Score    = Habitat × (0.30 + 0.70 × Weather) × Sezon × kary(susza, upał, mróz) × korekta GBIF
+Weather *= 0.4 + 0.6 × mean(opad z opóźnieniem, wilgotność gleby)   # bez wody nie ma owocników
+x        = Habitat × (0.30 + 0.70 × Weather) × Sezon × kary(susza, upał, mróz) × korekta GBIF
+Score    = 100 × x^2.2      # kalibracja: przeciętne warunki ~30–45, 85+ tylko przy prawie idealnych
 ```
 
 * Opad liczony jest jako ważona suma z dni t−1…t−35. Każdy gatunek ma własny profil opóźnienia,

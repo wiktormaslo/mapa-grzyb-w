@@ -114,7 +114,7 @@ def prior_score(gbif_count: int | None, m: ModelSettings = MODEL) -> float | Non
     """Presence-only prior: no records is NOT evidence of absence -> stays at 0.5."""
     if gbif_count is None:
         return None
-    return 0.5 + 0.5 * (1.0 - math.exp(-gbif_count / m.prior_scale_records))
+    return 0.5 + (m.prior_max - 0.5) * (1.0 - math.exp(-gbif_count / m.prior_scale_records))
 
 
 # ---------------------------------------------------------------- weather parts
@@ -210,6 +210,9 @@ def weather_part(cfg: SpeciesConfig, w: dict[str, Any] | None, target: date,
     lag_mm = wcomp.pop("_lag")
     ww = cfg.weather_weights or m.weather_weights
     weather, _ = weighted_mean((wcomp[k], ww[k]) for k in ww)
+    water = [v for v in (wcomp["rainfall_lag"], wcomp["soil_moisture"]) if v is not None]
+    if weather is not None and water:
+        weather *= m.water_trigger_floor + (1 - m.water_trigger_floor) * (sum(water) / len(water))
     season = season_score(target.timetuple().tm_yday, *cfg.season)
     pen = penalties(cfg, w, m)
     return WeatherPart(wcomp, lag_mm, weather, season, pen,
@@ -237,9 +240,10 @@ def _habitat(cfg: SpeciesConfig, ctx: Context, m: ModelSettings):
 
 def _combine(habitat_total: float, prior: float | None, wp: WeatherPart, m: ModelSettings) -> int:
     weather_val = wp.weather if wp.weather is not None else m.weather_unknown
-    hist_adj = 1.0 if prior is None else 1.0 + m.historical_adjustment_max * (prior - 0.5) * 2
+    hist_adj = 1.0 if prior is None else 1.0 + m.historical_adjustment_max * (prior - 0.5) / (m.prior_max - 0.5)
     base = habitat_total * (m.weather_floor + (1 - m.weather_floor) * weather_val) * wp.season
-    return int(round(clamp(base * wp.penalty_factor * hist_adj * 100, 0, 100)))
+    adjusted = clamp(base * wp.penalty_factor * hist_adj)
+    return int(round(100 * adjusted ** m.score_gamma))
 
 
 def score_only(cfg: SpeciesConfig, ctx: Context, wp: WeatherPart, m: ModelSettings = MODEL) -> tuple[int, int]:

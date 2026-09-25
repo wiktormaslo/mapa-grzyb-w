@@ -133,6 +133,12 @@ button { font: inherit; color: inherit; }
 .legend-ticks, .legend-labels { display: flex; justify-content: space-between; margin-top: 6px; }
 .legend-ticks span { font: 10px var(--mono); color: var(--muted); }
 .legend-labels span { font-size: 9.5px; color: var(--faint); text-align: center; flex: 1; }
+.legend-nodata { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 11px; color: var(--muted); }
+.legend-nodata i {
+  width: 22px; height: 12px; border-radius: 3px; flex: none; background-color: #1d2c23;
+  background-image: repeating-linear-gradient(135deg, rgba(205, 230, 215, 0.35) 0 1px, transparent 1px 5px);
+  border: 1px solid var(--line);
+}
 
 /* ============================================================== status */
 #status {

@@ -104,7 +104,7 @@ def test_tree_codes():
 def test_prior_neutral_without_records():
     assert prior_score(0) == 0.5
     assert prior_score(None) is None
-    assert 0.9 < prior_score(10) <= 1.0
+    assert 0.65 < prior_score(10) <= 0.7
 
 
 def test_uppercase_site_codes_from_bdl():
