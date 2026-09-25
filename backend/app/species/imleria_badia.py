@@ -1,0 +1,36 @@
+"""Podgrzybek brunatny. Mostly pine/spruce, acidic poor-to-medium coniferous and mixed forests."""
+from app.species.base import SpeciesConfig
+
+CONFIG = SpeciesConfig(
+    id="imleria_badia",
+    name_pl="Podgrzybek brunatny",
+    name_short="Podgrzybek",
+    latin="Imleria badia",
+    gbif_names=["Imleria badia", "Boletus badius", "Xerocomus badius"],
+    host_trees={
+        "Pinus": 1.0, "Picea": 1.0, "Abies": 0.6, "Fagus": 0.6, "Quercus": 0.5,
+        "Larix": 0.4, "Pseudotsuga": 0.4, "Betula": 0.3,
+    },
+    unknown_companion_host=0.3,
+    site_fertility={"B": 0.85, "BM": 1.0, "LM": 0.8, "L": 0.5, "OL": 0.15, "LL": 0.1},
+    site_moisture={"S": 0.5, "SW": 1.0, "W": 0.9, "B": 0.35},
+    mountain_factor=1.0,
+    ph_pref=(2.8, 3.5, 5.0, 6.8),
+    sand_pref=(20, 50, 95, 100),
+    stand_age_pref=(10, 30, 120, 200),
+    elevation_pref=(-50, 0, 900, 1400),
+    season=(185, 238, 300, 332),
+    rain_lag=(9, 4, 9),
+    rain_response=[(0, 0), (0.5, 0.05), (1.5, 0.5), (2.5, 0.9), (3.5, 1.0), (12, 1.0), (20, 0.8)],
+    temperature_pref=[(1, 0), (6, 0.4), (9, 1), (17, 1), (22, 0.4), (27, 0)],
+    soil_temperature_pref=[(2, 0), (7, 0.5), (9, 1), (16, 1), (20, 0.4), (25, 0)],
+    soil_moisture_pref=[(0.04, 0), (0.10, 0.3), (0.17, 1), (0.40, 1), (0.50, 0.6)],
+    humidity_pref=[(45, 0), (60, 0.4), (78, 1), (100, 1)],
+    vpd_pref=[(0, 1), (0.8, 1), (1.5, 0.5), (2.5, 0.1), (4, 0)],
+    water_balance_pref=[(-60, 0), (-30, 0.3), (0, 0.8), (15, 1)],
+    drought_max_penalty=0.5,
+    heat_max_penalty=0.5,
+    frost_max_penalty=0.7,
+    heat_tmax=(25, 31),
+    frost_tmin=-2.5,
+)

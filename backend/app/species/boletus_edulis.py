@@ -1,0 +1,37 @@
+"""Borowik szlachetny. Broad host range (conifers + broadleaves), mesic sites, older stands."""
+from app.species.base import SpeciesConfig
+
+CONFIG = SpeciesConfig(
+    id="boletus_edulis",
+    name_pl="Borowik szlachetny",
+    name_short="Borowik",
+    latin="Boletus edulis",
+    gbif_names=["Boletus edulis"],
+    host_trees={
+        "Picea": 1.0, "Quercus": 0.9, "Pinus": 0.85, "Fagus": 0.85, "Castanea": 0.8,
+        "Betula": 0.6, "Abies": 0.6, "Carpinus": 0.4, "Pseudotsuga": 0.3, "Larix": 0.2,
+        "Tilia": 0.1,
+    },
+    unknown_companion_host=0.3,
+    site_fertility={"B": 0.6, "BM": 0.95, "LM": 0.9, "L": 0.7, "OL": 0.1, "LL": 0.2},
+    site_moisture={"S": 0.5, "SW": 1.0, "W": 0.75, "B": 0.2},
+    mountain_factor=1.0,
+    ph_pref=(3.3, 4.0, 5.8, 7.5),
+    sand_pref=(10, 35, 90, 100),
+    stand_age_pref=(15, 45, 150, 260),
+    elevation_pref=(-50, 0, 1200, 1700),
+    season=(150, 222, 285, 322),
+    rain_lag=(11, 4, 10),
+    rain_response=[(0, 0), (0.5, 0.05), (1.5, 0.5), (2.5, 0.9), (3.5, 1.0), (12, 1.0), (20, 0.8)],
+    temperature_pref=[(2, 0), (7, 0.4), (11, 1), (18, 1), (23, 0.4), (28, 0)],
+    soil_temperature_pref=[(3, 0), (8, 0.5), (11, 1), (17, 1), (21, 0.4), (26, 0)],
+    soil_moisture_pref=[(0.04, 0), (0.10, 0.3), (0.18, 1), (0.38, 1), (0.48, 0.6)],
+    humidity_pref=[(45, 0), (60, 0.4), (78, 1), (100, 1)],
+    vpd_pref=[(0, 1), (0.8, 1), (1.5, 0.5), (2.5, 0.1), (4, 0)],
+    water_balance_pref=[(-60, 0), (-30, 0.3), (0, 0.8), (15, 1)],
+    drought_max_penalty=0.5,
+    heat_max_penalty=0.5,
+    frost_max_penalty=0.8,
+    heat_tmax=(26, 32),
+    frost_tmin=-2.0,
+)

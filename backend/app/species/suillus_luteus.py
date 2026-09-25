@@ -1,0 +1,33 @@
+"""Maślak zwyczajny. Strictly two-needle pines, young stands, poor sandy soils."""
+from app.species.base import SpeciesConfig
+
+CONFIG = SpeciesConfig(
+    id="suillus_luteus",
+    name_pl="Maślak zwyczajny",
+    name_short="Maślak",
+    latin="Suillus luteus",
+    gbif_names=["Suillus luteus"],
+    host_trees={"Pinus": 1.0, "Larix": 0.05},
+    unknown_companion_host=0.3,
+    site_fertility={"B": 1.0, "BM": 0.85, "LM": 0.5, "L": 0.25, "OL": 0.05, "LL": 0.05},
+    site_moisture={"S": 0.85, "SW": 1.0, "W": 0.6, "B": 0.2},
+    mountain_factor=0.85,
+    ph_pref=(3.3, 4.0, 6.2, 7.8),
+    sand_pref=(30, 60, 100, 101),
+    stand_age_pref=(4, 10, 45, 90),
+    elevation_pref=(-50, 0, 800, 1400),
+    season=(158, 235, 300, 332),
+    rain_lag=(6, 3, 8),
+    rain_response=[(0, 0), (0.5, 0.05), (1.3, 0.5), (2.3, 0.9), (3.2, 1.0), (12, 1.0), (20, 0.8)],
+    temperature_pref=[(3, 0), (8, 0.5), (11, 1), (20, 1), (25, 0.4), (30, 0)],
+    soil_temperature_pref=[(3, 0), (8, 0.5), (11, 1), (18, 1), (22, 0.4), (27, 0)],
+    soil_moisture_pref=[(0.03, 0), (0.08, 0.3), (0.15, 1), (0.36, 1), (0.46, 0.6)],
+    humidity_pref=[(45, 0), (60, 0.4), (76, 1), (100, 1)],
+    vpd_pref=[(0, 1), (0.9, 1), (1.6, 0.5), (2.6, 0.1), (4, 0)],
+    water_balance_pref=[(-60, 0), (-30, 0.3), (0, 0.8), (15, 1)],
+    drought_max_penalty=0.5,
+    heat_max_penalty=0.45,
+    frost_max_penalty=0.8,
+    heat_tmax=(27, 33),
+    frost_tmin=-2.0,
+)

@@ -1,0 +1,33 @@
+"""Mleczaj rydz. Pines, young-to-middle aged stands, prefers less acidic (often calcareous) soils."""
+from app.species.base import SpeciesConfig
+
+CONFIG = SpeciesConfig(
+    id="lactarius_deliciosus",
+    name_pl="Mleczaj rydz",
+    name_short="Rydz",
+    latin="Lactarius deliciosus",
+    gbif_names=["Lactarius deliciosus"],
+    host_trees={"Pinus": 1.0, "Picea": 0.15},
+    unknown_companion_host=0.25,
+    site_fertility={"B": 0.8, "BM": 0.95, "LM": 0.65, "L": 0.35, "OL": 0.05, "LL": 0.05},
+    site_moisture={"S": 0.7, "SW": 1.0, "W": 0.6, "B": 0.15},
+    mountain_factor=0.9,
+    ph_pref=(3.8, 5.0, 7.5, 8.5),
+    sand_pref=(20, 45, 95, 100),
+    stand_age_pref=(5, 12, 60, 110),
+    elevation_pref=(-50, 0, 700, 1200),
+    season=(205, 245, 295, 328),
+    rain_lag=(10, 4, 10),
+    rain_response=[(0, 0), (0.5, 0.05), (1.5, 0.5), (2.5, 0.9), (3.5, 1.0), (12, 1.0), (20, 0.8)],
+    temperature_pref=[(1, 0), (5, 0.5), (8, 1), (16, 1), (21, 0.4), (26, 0)],
+    soil_temperature_pref=[(2, 0), (6, 0.5), (8, 1), (15, 1), (19, 0.4), (24, 0)],
+    soil_moisture_pref=[(0.04, 0), (0.09, 0.3), (0.16, 1), (0.38, 1), (0.48, 0.6)],
+    humidity_pref=[(45, 0), (60, 0.4), (78, 1), (100, 1)],
+    vpd_pref=[(0, 1), (0.7, 1), (1.4, 0.5), (2.4, 0.1), (4, 0)],
+    water_balance_pref=[(-60, 0), (-30, 0.3), (0, 0.8), (15, 1)],
+    drought_max_penalty=0.5,
+    heat_max_penalty=0.55,
+    frost_max_penalty=0.6,
+    heat_tmax=(24, 30),
+    frost_tmin=-3.0,
+)

@@ -1,0 +1,14 @@
+# Render Blueprint: New -> Blueprint -> select this repo.
+# One free web service (Docker): FastAPI API + built frontend on a single URL.
+services:
+  - type: web
+    name: mapa-grzybow
+    runtime: docker
+    plan: free
+    region: frankfurt
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/v1/health
+    # deploy only after GitHub Actions checks on the commit pass
+    autoDeployTrigger: checksPass
