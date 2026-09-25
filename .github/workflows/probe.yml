@@ -1,0 +1,24 @@
+name: Probe sources
+
+# Manual live check of BDL / Open-Meteo / GBIF / SoilGrids and of the deployed app.
+on:
+  workflow_dispatch:
+    inputs:
+      app_url:
+        description: "Deployed app URL (optional)"
+        required: false
+        default: "https://mapa-grzybow.onrender.com"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - run: python -m scripts.probe_sources "${{ inputs.app_url }}"
