@@ -125,6 +125,19 @@ async def probe_app(url: str):
                                                (LON - 0.08, LAT - 0.04, LON + 0.08, LAT + 0.04, 12)):
             status, body = await get(f"/api/v1/predictions/bbox?west={west}&south={south}&east={east}"
                                      f"&north={north}&zoom={zoom}&species=all")
+            if body and body.get("meta", {}).get("weather_missing"):
+                # emulate the browser: fetch the missing weather ourselves, upload, ask again
+                meta = body["meta"]
+                pts = meta["weather_missing"][:50]
+                q = {"latitude": ",".join(f"{p[0]:.4f}" for p in pts),
+                     "longitude": ",".join(f"{p[1]:.4f}" for p in pts),
+                     **meta["weather_request"]["params"]}
+                wr = await c.get(meta["weather_request"]["url"], params=q)
+                up = await c.post(base + "/api/v1/weather", json={"points": pts, "data": wr.json()})
+                print(f"browser-emulation: {len(pts)} points, open-meteo {wr.status_code}, "
+                      f"upload {up.status_code} {up.text[:100]}")
+                status, body = await get(f"/api/v1/predictions/bbox?west={west}&south={south}"
+                                         f"&east={east}&north={north}&zoom={zoom}&species=all")
             if body and "features" in body:
                 if body["features"] and cell is None:
                     ring = body["features"][0]["geometry"]["coordinates"][0]
