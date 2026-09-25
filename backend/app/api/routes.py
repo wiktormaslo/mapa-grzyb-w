@@ -74,7 +74,7 @@ if config.DEBUG:
         from app.prediction import grid
         target, _ = service.resolve_date(date)
         forest = (await bdl.query_points([(lat, lon)]))[0]
-        wp = grid.snap_weather(lat, lon, 1000)
+        wp = grid.snap_weather(lat, lon, grid.LADDER[0])
         weather, errors = await open_meteo.fetch_weather([wp])
         wf = service._features_for(weather.get(wp), target) or {}
         wf = {k: v for k, v in wf.items() if not isinstance(v, list)}

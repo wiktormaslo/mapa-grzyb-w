@@ -221,7 +221,7 @@ async def predict_point(lat: float, lon: float, species: str, date_str: str | No
         base["sources"] = sources
         return base
 
-    wp = grid.snap_weather(lat, lon, 1000)
+    wp = grid.snap_weather(lat, lon, grid.LADDER[0])
     (weather, werr, wsource, coarse), soil = await asyncio.gather(get_weather([wp]),
                                                           soilgrids.fetch_soil(lat, lon))
     errors.extend(werr)
