@@ -162,7 +162,14 @@ async def probe_frontend_services():
         "Photon search": "https://photon.komoot.io/api/?q=Puszcza%20Kampinoska&limit=2&bbox=14.0,49.0,24.2,54.9",
         "Nominatim search": "https://nominatim.openstreetmap.org/search?q=Celestyn%C3%B3w&format=jsonv2&countrycodes=pl&limit=2",
     }
-    async with httpx.AsyncClient(timeout=30, follow_redirects=True) as c:
+    browser_like = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
+                      "Chrome/140.0 Safari/537.36",
+        "Referer": "https://mapa-grzybow.onrender.com/",
+        "Origin": "https://mapa-grzybow.onrender.com",
+        "Accept-Language": "pl,en;q=0.8",
+    }
+    async with httpx.AsyncClient(timeout=30, follow_redirects=True, headers=browser_like) as c:
         for name, url in urls.items():
             try:
                 r = await c.get(url)
