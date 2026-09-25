@@ -2,7 +2,7 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./style.css";
 import { fetchBbox, fetchPoint, fillWeatherGap, waitForServer } from "./api/client";
-import { C as BASE, gtaStyle, rasterFallbackStyle } from "./map/basemap";
+import { gtaStyle, hatchImage, rasterFallbackStyle } from "./map/basemap";
 import { addPredictionLayers, setMode, setPredictions, type ViewMode } from "./map/layer";
 import { CLASSES, cssGradient } from "./map/scale";
 import { closePanel, onPanelClose, showError, showLoading, showPoint } from "./components/panel";
@@ -40,7 +40,7 @@ const map = new maplibregl.Map({
   center: [21.35, 52.05],
   zoom: 10.5,
   minZoom: 5,
-  maxZoom: 16,
+  maxZoom: 15.3, // keeps heatmap radius (2.2 cells of 250 m) under the 512 px source buffer
   maxBounds: [[10, 46.5], [28.5, 57]],
   attributionControl: { compact: true },
 });
@@ -56,8 +56,11 @@ map.on("error", (e) => {
     map.setStyle(rasterFallbackStyle());
   }
 });
+map.on("styleimagemissing", (e) => {
+  if (e.id === "hatch" && !map.hasImage("hatch")) map.addImage("hatch", hatchImage(), { pixelRatio: 2 });
+});
 map.on("style.load", () => {
-  addPredictionLayers(map, state.mode, usedFallback ? BASE.land : BASE.forest);
+  addPredictionLayers(map, state.mode);
   if (state.last) setPredictions(map, state.last);
   if (state.ready) scheduleLoad(0);
 });
@@ -75,7 +78,7 @@ function renderLegend() {
     <div class="legend-bar" style="background:${cssGradient()}"></div>
     <div class="legend-ticks">${[0, 20, 40, 60, 80, 100].map((t) => `<span>${t}</span>`).join("")}</div>
     <div class="legend-labels">${CLASSES.map((c) => `<span>${c.label}</span>`).join("")}</div>
-    <div class="legend-nodata"><i></i>las bez danych o drzewostanie (np. prywatny)</div>`;
+    <div class="legend-nodata"><i></i>teren poza lasem</div>`;
 }
 
 function renderSpecies() {

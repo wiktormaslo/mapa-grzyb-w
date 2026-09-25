@@ -38,6 +38,8 @@ export function gtaStyle(): StyleSpecification {
     },
     layers: [
       { id: "bg", type: "background", paint: { "background-color": C.land } },
+      // everything that is not forest gets a faint hatch; forests are painted over it
+      { id: "nonforest-hatch", type: "background", paint: { "background-pattern": "hatch" } },
       {
         id: "landcover-wood", type: "fill", source: "omt", "source-layer": "landcover",
         filter: ["==", ["get", "class"], "wood"],
@@ -198,4 +200,20 @@ export function rasterFallbackStyle(): StyleSpecification {
       },
     ],
   };
+}
+
+/** Faint diagonal hatch (registered on demand via the "styleimagemissing" event). */
+export function hatchImage(): ImageData {
+  const size = 16; // drawn at 2x for crisp lines
+  const c = document.createElement("canvas");
+  c.width = c.height = size;
+  const g = c.getContext("2d")!;
+  g.fillStyle = C.land;
+  g.fillRect(0, 0, size, size);
+  g.strokeStyle = "rgba(205, 230, 215, 0.13)";
+  g.lineWidth = 1.5;
+  g.beginPath();
+  for (const o of [-size, 0, size]) { g.moveTo(o, size); g.lineTo(o + size, 0); }
+  g.stroke();
+  return g.getImageData(0, 0, size, size);
 }

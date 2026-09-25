@@ -11,45 +11,11 @@ const INTENSITY = 9 / (Math.sqrt(2 * Math.PI) * K * K);
 
 export type ViewMode = "heat" | "grid";
 
-/** Diagonal hatch used to mark forests without BDL stand data (e.g. private forests). */
-function addHatchImage(map: MlMap) {
-  if (map.hasImage("hatch")) return;
-  const size = 16; // drawn at 2x for crisp lines
-  const c = document.createElement("canvas");
-  c.width = c.height = size;
-  const g = c.getContext("2d")!;
-  g.strokeStyle = "rgba(205, 230, 215, 0.2)";
-  g.lineWidth = 1.5;
-  g.beginPath();
-  for (const o of [-size, 0, size]) { g.moveTo(o, size); g.lineTo(o + size, 0); }
-  g.stroke();
-  map.addImage("hatch", g.getImageData(0, 0, size, size), { pixelRatio: 2 });
-}
+export function addPredictionLayers(map: MlMap, mode: ViewMode) {
+  // big buffer: heatmap kernels are wider than MapLibre's default tile buffer, which would clip
+  // blobs with straight edges at internal tile boundaries
+  map.addSource(SRC, { type: "geojson", data: { type: "FeatureCollection", features: [] }, buffer: 512 });
 
-export function addPredictionLayers(map: MlMap, mode: ViewMode, forestColor: string) {
-  map.addSource(SRC, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-
-  // "no data" marking: OSM forests are hatched, analysed cells cover the hatch
-  if (map.getSource("omt")) {
-    addHatchImage(map);
-    map.addLayer({
-      id: "nodata-hatch",
-      type: "fill",
-      minzoom: 9, // at country scale cells are sparse samples; hatching would mislead
-      source: "omt",
-      "source-layer": "landcover",
-      filter: ["==", ["get", "class"], "wood"],
-      paint: { "fill-pattern": "hatch" },
-    });
-  }
-  map.addLayer({
-    id: "pred-cover",
-    type: "fill",
-    minzoom: 9,
-    source: SRC,
-    filter: ["==", ["geometry-type"], "Polygon"],
-    paint: { "fill-color": forestColor, "fill-antialias": false },
-  });
 
   const heatColor: unknown[] = ["interpolate", ["linear"], ["heatmap-density"]];
   for (const [x, c] of RAMP) heatColor.push(x / 100, c);

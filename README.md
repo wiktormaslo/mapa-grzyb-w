@@ -8,7 +8,7 @@ Gąski zielonki świadomie nie ma: od 2011 roku nie jest dopuszczona do obrotu p
 
 Interfejs: ciemna mapa podkładowa w stylu GTA V (OpenFreeMap), wynik jako półprzezroczyste
 „plamy” (heatmapa skalibrowana tak, by ciągły las o wyniku S miał kolor S z legendy) albo siatka,
-wyszukiwarka miejsc (Photon/OSM), pinezka i szczegóły po pojedynczym kliknięciu
+wyszukiwarka miejsc (Photon/OSM), pinezka i szczegóły po pojedynczym kliknięciu, kreskowanie terenów poza lasem
 (podwójne kliknięcie tylko przybliża).
 
 ## Jak działa model
